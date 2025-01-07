@@ -1,114 +1,109 @@
 #!/usr/bin/env /usr/local/bin/node
 
+//needed to load env variables
+require('dotenv').config();
+
 // Metadata
 // <xbar.title>Carbon Intensity</xbar.title>
 // <xbar.version>v1.0</xbar.version>
 // <xbar.author>Jason Jones</xbar.author>
-// <xbar.desc>Shows current carbon intensity of the gridfrom Electricity Maps</xbar.desc>
-// <xbar.dependencies>node, Electricity Maps API</xbar.dependencies>
+// <xbar.desc>Shows current carbon intensity of the grid from Electricity Maps</xbar.desc>
+// <xbar.dependencies>node, Electricity Maps API, WattTime API</xbar.dependencies>
 
 const https = require('https');
 
-// You'll need to sign up for an API key at https://www.electricitymaps.com/
-const ELECTRICITY_MAPS_API_KEY = 'your-api-key-here';
-// Set your zone examples:
-// US-CAISO_SOUTH - Southern California
-// US-TEX - Texas
-// US-NW-PACE - Parts of Utah, Wyoming, and Colorado
-// For full list of zones, see:
-// https://static.electricitymaps.com/api/docs/index.html#zones
-const ELECTRICITY_MAPS_ZONE = 'US-NW-PACE';
+// API Configuration
+const requiredEnvVars = {
+  'ELECTRICITY_MAPS_API_KEY': process.env.ELECTRICITY_MAPS_API_KEY,
+  'ELECTRICITY_MAPS_ZONE': process.env.ELECTRICITY_MAPS_ZONE,
+  'WATTTIME_USERNAME': process.env.WATTTIME_USERNAME,
+  'WATTTIME_PASSWORD': process.env.WATTTIME_PASSWORD,
+  'WATTTIME_ZONE': process.env.WATTTIME_ZONE
+};
 
-// WattTime credentials - get these from https://www.watttime.org/api-documentation/#register-new-user
-const WATTTIME_USERNAME = 'PLACEHOLDER_USERNAME';
-const WATTTIME_PASSWORD = 'PLACEHOLDER_PASSWORD';
-// WattTime BA (Balancing Authority) code
-// Examples: CAISO_NORTH, NYISO, ISONE, PJM, MISO, ERCOT, PACE
-// Full list: https://www.watttime.org/api-documentation/#ba-from-location
-const WATTTIME_BA = 'PACE';
 
+const missingVars = Object.entries(requiredEnvVars)
+  .filter(([, value]) => !value)
+  .map(([name]) => name);
+
+if (missingVars.length > 0) {
+  throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+}
+
+const {
+  ELECTRICITY_MAPS_API_KEY,
+  ELECTRICITY_MAPS_ZONE,
+  WATTTIME_USERNAME,
+  WATTTIME_PASSWORD,
+  WATTTIME_ZONE
+} = requiredEnvVars;
+
+// Display Configuration
 const COLORS = ["#0ed812", "#ffde33", "#ff9933", "#cc0033", "#660099", "#7e0023", "#404040"];
 const EMOJIS = ["🌱", "🌿", "🍂", "💨", "🏭", "⚠️", "❓"];
 
-// Function to make API request
+// Helper Functions
 function makeRequest(path) {
   return new Promise((resolve, reject) => {
     const options = {
       hostname: 'api.electricitymap.org',
       path: path,
-      headers: {
-        'auth-token': ELECTRICITY_MAPS_API_KEY
-      }
+      headers: { 'auth-token': ELECTRICITY_MAPS_API_KEY }
     };
-
-    https.get(options, (resp) => {
-      let data = '';
-      resp.on('data', (chunk) => { data += chunk; });
-      resp.on('end', () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch (error) {
-          reject(error);
-        }
-      });
-    }).on('error', reject);
+    https.get(options, handleResponse(resolve, reject));
   });
 }
 
-
-// Function to get WattTime login token
-async function getWattTimeToken() {
+function getWattTimeToken() {
   return new Promise((resolve, reject) => {
     const auth = Buffer.from(`${WATTTIME_USERNAME}:${WATTTIME_PASSWORD}`).toString('base64');
     const options = {
       hostname: 'api2.watttime.org',
       path: '/v2/login',
-      headers: {
-        'Authorization': `Basic ${auth}`
-      }
+      headers: { 'Authorization': `Basic ${auth}` }
     };
-
-    https.get(options, (resp) => {
-      let data = '';
-      resp.on('data', (chunk) => { data += chunk; });
-      resp.on('end', () => {
-        try {
-          const token = JSON.parse(data).token;
-          resolve(token);
-        } catch (error) {
-          reject(error);
-        }
-      });
-    }).on('error', reject);
+    https.get(options, handleResponse(resolve, reject, response => response.token));
   });
 }
 
-// Function to get MOER index from WattTime
-async function getMOER(token) {
+function getMOER(token) {
   return new Promise((resolve, reject) => {
     const options = {
       hostname: 'api2.watttime.org',
-      path: `/v3/signal-index?region=${WATTTIME_BA}&signal_type=co2_moer`,
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
+      path: `/v3/signal-index?region=${WATTTIME_ZONE}&signal_type=co2_moer`,
+      headers: { 'Authorization': `Bearer ${token}` }
     };
-
-    https.get(options, (resp) => {
-      let data = '';
-      resp.on('data', (chunk) => { data += chunk; });
-      resp.on('end', () => {
-        try {
-          resolve(JSON.parse(data));
-        } catch (error) {
-          reject(error);
-        }
-      });
-    }).on('error', reject);
+    https.get(options, handleResponse(resolve, reject));
   });
 }
 
-// Function to get emoji based on MOER percentile
+function handleResponse(resolve, reject, transform = response => response) {
+  return (resp) => {
+    let data = '';
+    resp.on('data', (chunk) => { data += chunk; });
+    resp.on('end', () => {
+      try {
+        resolve(transform(JSON.parse(data)));
+      } catch (error) {
+        reject(error);
+      }
+    });
+  };
+}
+
+function calculateFossilFuelPercentage(powerData) {
+  if (!powerData?.powerConsumptionBreakdown) {
+    console.error('Power data is missing or invalid:', powerData);
+    return 'N/A';
+  }
+
+  const fossilFuels = ['coal', 'gas', 'oil', 'unknown'];
+  const totalPower = Object.values(powerData.powerConsumptionBreakdown).reduce((a, b) => a + b, 0);
+  const fossilPower = fossilFuels.reduce((sum, fuel) => 
+    sum + (powerData.powerConsumptionBreakdown[fuel] || 0), 0);
+  return Math.round((fossilPower / totalPower) * 100);
+}
+
 function getEmoji(percentile) {
   if (percentile === undefined || percentile === 'N/A') return EMOJIS[6];
   if (percentile <= 20) return EMOJIS[0];  // Cleanest 20%
@@ -119,7 +114,6 @@ function getEmoji(percentile) {
   return EMOJIS[5];                        // Extremely dirty
 }
 
-// Function to get color based on MOER percentile
 function getColor(percentile) {
   if (percentile === undefined || percentile === 'N/A') return COLORS[6];
   if (percentile <= 20) return COLORS[0];
@@ -130,32 +124,34 @@ function getColor(percentile) {
   return COLORS[5];
 }
 
-// Make all API calls
+function displayPowerBreakdown(powerData) {
+  const totalPower = Object.values(powerData.powerConsumptionBreakdown).reduce((a, b) => a + b, 0);
+  Object.entries(powerData.powerConsumptionBreakdown)
+    .sort(([, a], [, b]) => b - a)
+    .forEach(([source, value]) => {
+      const percentage = Math.round((value / totalPower) * 100);
+      if (percentage > 0) {
+        console.log(`${source}: ${percentage}%`);
+      }
+    });
+}
+
+// Main Execution
 Promise.all([
   makeRequest(`/v3/carbon-intensity/latest?zone=${ELECTRICITY_MAPS_ZONE}`),
   makeRequest(`/v3/power-breakdown/latest?zone=${ELECTRICITY_MAPS_ZONE}`),
   getWattTimeToken().then(token => getMOER(token))
 ])
 .then(([carbonData, powerData, moerData]) => {
-  // Debug log
-  console.error('MOER Data:', JSON.stringify(moerData, null, 2));
-
-  // Calculate fossil fuel percentage
-  const fossilFuels = ['coal', 'gas', 'oil', 'unknown'];
-  const totalPower = Object.values(powerData.powerConsumptionBreakdown).reduce((a, b) => a + b, 0);
-  const fossilPower = fossilFuels.reduce((sum, fuel) => 
-    sum + (powerData.powerConsumptionBreakdown[fuel] || 0), 0);
-  const fossilPercentage = Math.round((fossilPower / totalPower) * 100);
-  
-  // Safely get MOER values with fallbacks
+  const fossilPercentage = calculateFossilFuelPercentage(powerData);
   const moerValue = moerData?.data?.[0]?.value ?? 'N/A';
-  const moerPercent = moerValue; // The value is already a percentile
+  const moerPercent = moerValue;
 
   const emoji = getEmoji(moerPercent);
   const color = getColor(moerPercent);
   
-  // Display in menu bar with emoji and color
-  console.log(`${emoji} ${Math.round(carbonData.carbonIntensity)} gCO₂eq/kWh | color=${color} size=12 font=UbuntuMono-Bold`);
+  // Menu Bar Display - now includes percentile
+  console.log(`${emoji} ${Math.round(carbonData.carbonIntensity)} gCO₂eq/kWh (${moerPercent}%) | color=${color} size=12 font=UbuntuMono-Bold`);
   console.log('---');
   console.log(`Zone: ${ELECTRICITY_MAPS_ZONE}`);
   console.log(`Updated: ${new Date(powerData.datetime).toLocaleTimeString()}`);
@@ -166,14 +162,7 @@ Promise.all([
   console.log(`Fossil Fuel Usage: ${fossilPercentage}%`);
   console.log('---');
   console.log('Power Breakdown:');
-  Object.entries(powerData.powerConsumptionBreakdown)
-    .sort(([, a], [, b]) => b - a)
-    .forEach(([source, value]) => {
-      const percentage = Math.round((value / totalPower) * 100);
-      if (percentage > 0) {
-        console.log(`${source}: ${percentage}%`);
-      }
-    });
+  displayPowerBreakdown(powerData);
   console.log('---');
   console.log('Open Electricity Maps | href=https://app.electricitymaps.com/');
 })
