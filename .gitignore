@@ -6,6 +6,7 @@ node_modules/
 .env.local
 .env.*
 !.env.example
+*.vars.json
 
 # macOS
 .DS_Store

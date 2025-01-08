@@ -1,46 +1,46 @@
-#!/usr/bin/env /usr/local/bin/node
+#!/opt/homebrew/bin/node
 
-//needed to load env variables
-require('dotenv').config();
+// Add debug logging at the very start
+// console.log('Debug: Script Started');
+// console.log('Debug: Process ENV:', process.env.PATH);
+// console.log('Debug: Current Directory:', process.cwd());
+// console.log('---');
+
 
 // Metadata
 // <xbar.title>Carbon Intensity</xbar.title>
 // <xbar.version>v1.0</xbar.version>
 // <xbar.author>Jason Jones</xbar.author>
-// <xbar.desc>Shows current carbon intensity of the grid from Electricity Maps</xbar.desc>
-// <xbar.dependencies>node, Electricity Maps API, WattTime API</xbar.dependencies>
+// <xbar.desc>Shows current carbon intensity of the grid from Electricity Maps and the relative cleanliness of the grid from WattTime</xbar.desc>
+// <xbar.dependencies>node, npm, xbar, Electricity Maps, WattTime</xbar.dependencies>
+
 
 const https = require('https');
 
-// API Configuration
-const requiredEnvVars = {
-  'ELECTRICITY_MAPS_API_KEY': process.env.ELECTRICITY_MAPS_API_KEY,
-  'ELECTRICITY_MAPS_ZONE': process.env.ELECTRICITY_MAPS_ZONE,
-  'WATTTIME_USERNAME': process.env.WATTTIME_USERNAME,
-  'WATTTIME_PASSWORD': process.env.WATTTIME_PASSWORD,
-  'WATTTIME_ZONE': process.env.WATTTIME_ZONE
-};
 
-
-const missingVars = Object.entries(requiredEnvVars)
-  .filter(([, value]) => !value)
-  .map(([name]) => name);
-
-if (missingVars.length > 0) {
-  throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+// Load variables from .vars.json file
+try {
+  const vars = require(`${__filename}.vars.json`);
+  Object.assign(process.env, vars);
+  //console.log('Debug: Loaded variables from .vars.json');
+  // console.log('Debug: xbar API Key:', ELECTRICITY_MAPS_API_KEY ? '[SET]' : '[NOT SET]');
+  // console.log('Debug: env API Key:', ELECTRICITY_MAPS_API_KEY ? '[SET]' : '[NOT SET]');
+} catch (error) {
+  console.error('Debug: Failed to load .vars.json:', error.message);
 }
 
-const {
-  ELECTRICITY_MAPS_API_KEY,
-  ELECTRICITY_MAPS_ZONE,
-  WATTTIME_USERNAME,
-  WATTTIME_PASSWORD,
-  WATTTIME_ZONE
-} = requiredEnvVars;
+// API Configuration
+const ELECTRICITY_MAPS_API_KEY =  process.env.ELECTRICITY_MAPS_API_KEY;
+const ELECTRICITY_MAPS_ZONE = process.env.ELECTRICITY_MAPS_ZONE;
+const WATTTIME_USERNAME =  process.env.WATTTIME_USERNAME;
+const WATTTIME_PASSWORD =  process.env.WATTTIME_PASSWORD;
+const WATTTIME_ZONE =  process.env.WATTTIME_ZONE;
 
 // Display Configuration
-const COLORS = ["#0ed812", "#ffde33", "#ff9933", "#cc0033", "#660099", "#7e0023", "#404040"];
+const COLORS = ["#15803d", "#b45309", "#c2410c", "#b91c1c", "#7e22ce", "#9f1239", "#374151"];
 const EMOJIS = ["🌱", "🌿", "🍂", "💨", "🏭", "⚠️", "❓"];
+
+
 
 // Helper Functions
 function makeRequest(path) {
@@ -104,6 +104,19 @@ function calculateFossilFuelPercentage(powerData) {
   return Math.round((fossilPower / totalPower) * 100);
 }
 
+function calculateRenewablePercentage(powerData) {
+  if (!powerData?.powerConsumptionBreakdown) {
+    console.error('Power data is missing or invalid:', powerData);
+    return 'N/A';
+  }
+
+  const renewables = ['wind', 'solar', 'hydro', 'biomass', 'geothermal'];
+  const totalPower = Object.values(powerData.powerConsumptionBreakdown).reduce((a, b) => a + b, 0);
+  const renewablePower = renewables.reduce((sum, source) => 
+    sum + (powerData.powerConsumptionBreakdown[source] || 0), 0);
+  return Math.round((renewablePower / totalPower) * 100);
+}
+
 function getEmoji(percentile) {
   if (percentile === undefined || percentile === 'N/A') return EMOJIS[6];
   if (percentile <= 20) return EMOJIS[0];  // Cleanest 20%
@@ -112,16 +125,6 @@ function getEmoji(percentile) {
   if (percentile <= 80) return EMOJIS[3];  // Dirtier than average
   if (percentile <= 90) return EMOJIS[4];  // Very dirty
   return EMOJIS[5];                        // Extremely dirty
-}
-
-function getColor(percentile) {
-  if (percentile === undefined || percentile === 'N/A') return COLORS[6];
-  if (percentile <= 20) return COLORS[0];
-  if (percentile <= 40) return COLORS[1];
-  if (percentile <= 60) return COLORS[2];
-  if (percentile <= 80) return COLORS[3];
-  if (percentile <= 90) return COLORS[4];
-  return COLORS[5];
 }
 
 function displayPowerBreakdown(powerData) {
@@ -143,15 +146,23 @@ Promise.all([
   getWattTimeToken().then(token => getMOER(token))
 ])
 .then(([carbonData, powerData, moerData]) => {
+  // Add debug information
+  // console.log('---');
+  // console.log('Debug Information:');
+  // console.log(`Raw Carbon Data: ${JSON.stringify(carbonData, null, 2)}`);
+  // console.log(`Raw Power Data: ${JSON.stringify(powerData, null, 2)}`);
+  // console.log(`Raw MOER Data: ${JSON.stringify(moerData, null, 2)}`);
+  // console.log('---');
+
   const fossilPercentage = calculateFossilFuelPercentage(powerData);
+  const renewablePercentage = calculateRenewablePercentage(powerData);
   const moerValue = moerData?.data?.[0]?.value ?? 'N/A';
   const moerPercent = moerValue;
 
   const emoji = getEmoji(moerPercent);
-  const color = getColor(moerPercent);
   
-  // Menu Bar Display - now includes percentile
-  console.log(`${emoji} ${Math.round(carbonData.carbonIntensity)} gCO₂eq/kWh (${moerPercent}%) | color=${color} size=12 font=UbuntuMono-Bold`);
+  // Menu Bar Display
+  console.log(`${emoji} ${Math.round(carbonData.carbonIntensity)} gCO₂eq/kWh (${moerPercent}%) | size=12 font=UbuntuMono-Bold`);
   console.log('---');
   console.log(`Zone: ${ELECTRICITY_MAPS_ZONE}`);
   console.log(`Updated: ${new Date(powerData.datetime).toLocaleTimeString()}`);
@@ -159,12 +170,13 @@ Promise.all([
   console.log(`Carbon Intensity: ${Math.round(carbonData.carbonIntensity)} gCO₂eq/kWh`);
   console.log(`MOER: ${moerValue}th percentile`);
   console.log('---');
-  console.log(`Fossil Fuel Usage: ${fossilPercentage}%`);
+  console.log(`Power from Renewables: ${renewablePercentage}%`);
+  console.log(`Power from Fossil Fuels: ${fossilPercentage}%`);
   console.log('---');
   console.log('Power Breakdown:');
   displayPowerBreakdown(powerData);
   console.log('---');
-  console.log('Open Electricity Maps | href=https://app.electricitymaps.com/');
+  console.log(`Open ${ELECTRICITY_MAPS_ZONE} in Electricity Maps | href=https://app.electricitymaps.com/zone/${ELECTRICITY_MAPS_ZONE}`);
 })
 .catch(error => {
   console.log('⚡ Error');
