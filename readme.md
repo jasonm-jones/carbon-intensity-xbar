@@ -1,59 +1,65 @@
 # Carbon Intensity xbar Plugin
 
-Shows real-time carbon intensity and grid cleanliness data in your menu bar.
+Shows real-time carbon intensity and grid cleanliness data in your menu bar.  The purpose is to help you make real-time decisions about when to run energy-intensive tasks (EV charging, laundry, etc.) to minimize your carbon footprint.  In some parts of the country, the grid may be up to 60% dirtier than other times in the same day.
 
 ## Understanding the Display
 
-The plugin shows two key metrics:
-- **Carbon Intensity** (gCO₂eq/kWh): The amount of carbon dioxide emitted per unit of electricity
-- **Grid Cleanliness Percentile** (%): How clean the grid is compared to typical conditions
+The plugin shows several key metrics:
+- **Carbon Intensity** (gCO₂eq/kWh): The amount of carbon dioxide emitted per kilowatt-hour of electricity used
+- **24hr Relative Cleanliness** (%): How clean the grid is compared to the next 24 hours
+- **Power Source Breakdown**: Percentage of power from renewable and fossil fuel sources
 
 ### Grid Cleanliness Indicators
 
-The emoji shows how clean your electricity is right now compared to typical conditions:
+The emoji shows how clean your electricity is right now relative to the next 24 hours:
 
-| Emoji | Percentile | Meaning |
-|-------|------------|---------|
-| 🌱 | 0-20% | Extremely Clean - Among the cleanest 20% of times |
-| 🌿 | 21-40% | Cleaner than Average |
-| 🍂 | 41-60% | Average Conditions |
-| 💨 | 61-80% | Dirtier than Average |
-| 🏭 | 81-90% | Very Dirty |
-| ⚠️ | 91-100% | Extremely Dirty - Among the dirtiest 10% of times |
+| Emoji | Meaning |
+|-------|---------|
+| 🌿 | Extremely Clean - Among the cleanest 20% of times |
+| 🌱 | Cleaner than Average |
+| 😑 | Average Conditions |
+| 😫 | Dirtier than Average |
+| 😡 | Very Dirty |
+| ⛔ | Extremely Dirty |
+| ❓ | Data Unavailable |
 
 For example:
-- "🌱 245 gCO₂eq/kWh (23%)" means the grid is cleaner than 77% of typical conditions
-- "🏭 450 gCO₂eq/kWh (85%)" means the grid is dirtier than 85% of typical conditions
+- "🌿 (77%) 245 gCO₂eq/kWh" means the grid cleanliness is in the top 77th percentile relative to the next 24 hours
+- "⛔ (15%) 450 gCO₂eq/kWh" means the grid cleanliness is in the bottom 15th percentile relative to the next 24 hours
 
 This can help you decide when to run energy-intensive tasks for minimum environmental impact.
 
-## Quick Start
+## Installation
 
 1. Install [xbar](https://xbarapp.com/)
-2. Clone this repository:
-   ```bash
-   git clone https://github.com/jasonm-jones/carbon-intensity-xbar.git
-   cd carbon-intensity-xbar
-   ```
+2. Open xbar and click "Browse Plugins"
+3. Search for "Carbon Intensity"
+4. Click "Install"
+5. Configure your API keys and zones (see Configuration below)
+6. Refresh xbar
 
-3. Run the setup script:
-   ```bash
-   node setup.js
-   ```
+## Configuration
 
-4. Follow the prompts to enter your:
-   - [Electricity Maps API key](https://www.electricitymaps.com/)
-   - [WattTime credentials](https://www.watttime.org/)
-   - Zone information
+1. Get your API credentials:
+   - Get an [Electricity Maps API key](https://api-portal.electricitymaps.com/signup)
+   - Sign up for [WattTime API access](https://www.watttime.org/api-documentation/#register-new-user)
 
-5. Refresh xbar
+2. Find your zone information (see Zones section below)
 
-## Features
-- Shows current carbon intensity in gCO₂eq/kWh
-- Displays grid cleanliness percentile
-- Visual indicators showing relative grid cleanliness
-- Detailed power source breakdown
-- Updates hourly
+3. Configure the plugin:
+   - Create a new file in the xbar plugins directory called `carbon-intensity.1h.js.vars.json`
+   - Copy this template and replace with your values:
+     ```json
+     {
+       "ELECTRICITY_MAPS_API_KEY": "your-electricity-maps-api-key-here",
+       "ELECTRICITY_MAPS_ZONE": "your-electricity-maps-zone-here",
+       "WATTTIME_USERNAME": "your-watt-time-username-here",
+       "WATTTIME_PASSWORD": "your-watt-time-password-here",
+       "WATTTIME_ZONE": "your-watt-time-zone-here"
+     }
+     ```
+
+Note: The `.vars.json` file contains your API keys and should not be shared or committed to version control.
 
 ## Zones
 Common zones for US regions:
@@ -64,13 +70,25 @@ Common zones for US regions:
 | Southern California | US-CAISO_SOUTH | CAISO_SOUTH |
 | New York | US-NY | NYISO |
 | New England | US-NE | ISONE |
+| Pennsylvania-New Jersey-Maryland | US-PJM | PJM |
+| Midcontinent | US-MISO | MISO |
 | Texas | US-TEX | ERCOT |
+| Utah-Wyoming-Colorado | US-NW-PACE | PACE |
 
-[Full list of zones](https://static.electricitymaps.com/api/docs/index.html#zones)
+Find the zone for your location:
+- [Electricity Maps Zones](https://static.electricitymaps.com/api/docs/index.html#zones)
+- [WattTime Balancing Authorities](https://www.watttime.org/api-documentation/#ba-from-location)
+
+## Features
+- Real-time carbon intensity in gCO₂eq/kWh
+- Grid cleanliness percentile
+- Visual indicators for grid cleanliness
+- Power source breakdown
+- Hourly updates
 
 ## Data Sources
-- [Electricity Maps](https://www.electricitymaps.com/): Provides carbon intensity and power source breakdown
-- [WattTime](https://www.watttime.org/): Provides real-time grid cleanliness data
+- [Electricity Maps](https://www.electricitymaps.com/): Carbon intensity and power source breakdown
+- [WattTime](https://www.watttime.org/): Real-time grid cleanliness data
 
 ## License
 MIT

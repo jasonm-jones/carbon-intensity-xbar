@@ -1,12 +1,5 @@
 #!/opt/homebrew/bin/node
 
-// Add debug logging at the very start
-// console.log('Debug: Script Started');
-// console.log('Debug: Process ENV:', process.env.PATH);
-// console.log('Debug: Current Directory:', process.cwd());
-// console.log('---');
-
-
 // Metadata
 // <xbar.title>Carbon Intensity</xbar.title>
 // <xbar.version>v1.0</xbar.version>
@@ -18,15 +11,14 @@
 const https = require('https');
 
 
-// Load variables from .vars.json file
-try {
-  const vars = require(`${__filename}.vars.json`);
-  Object.assign(process.env, vars);
-  //console.log('Debug: Loaded variables from .vars.json');
-  // console.log('Debug: xbar API Key:', ELECTRICITY_MAPS_API_KEY ? '[SET]' : '[NOT SET]');
-  // console.log('Debug: env API Key:', ELECTRICITY_MAPS_API_KEY ? '[SET]' : '[NOT SET]');
-} catch (error) {
-  console.error('Debug: Failed to load .vars.json:', error.message);
+// Load variables from either .vars.jsonfile
+if (!process.env.XBAR) {
+  try {
+    const vars = require(`${__filename}.vars.json`);
+    Object.assign(process.env, vars);
+  } catch (error) {
+    console.error('Debug: Failed to load .vars.json:', error.message);
+  }
 }
 
 // API Configuration
@@ -37,10 +29,7 @@ const WATTTIME_PASSWORD =  process.env.WATTTIME_PASSWORD;
 const WATTTIME_ZONE =  process.env.WATTTIME_ZONE;
 
 // Display Configuration
-const COLORS = ["#15803d", "#b45309", "#c2410c", "#b91c1c", "#7e22ce", "#9f1239", "#374151"];
-const EMOJIS = ["🌱", "🌿", "🍂", "💨", "🏭", "⚠️", "❓"];
-
-
+const EMOJIS = ["🌿", "🌱", "😑", "😫", "😡", "⛔", "❓"];
 
 // Helper Functions
 function makeRequest(path) {
@@ -146,37 +135,46 @@ Promise.all([
   getWattTimeToken().then(token => getMOER(token))
 ])
 .then(([carbonData, powerData, moerData]) => {
-  // Add debug information
-  // console.log('---');
-  // console.log('Debug Information:');
-  // console.log(`Raw Carbon Data: ${JSON.stringify(carbonData, null, 2)}`);
-  // console.log(`Raw Power Data: ${JSON.stringify(powerData, null, 2)}`);
-  // console.log(`Raw MOER Data: ${JSON.stringify(moerData, null, 2)}`);
-  // console.log('---');
 
   const fossilPercentage = calculateFossilFuelPercentage(powerData);
   const renewablePercentage = calculateRenewablePercentage(powerData);
   const moerValue = moerData?.data?.[0]?.value ?? 'N/A';
   const moerPercent = moerValue;
+  const moerTimestamp = moerData?.data?.[0]?.point_time;
 
   const emoji = getEmoji(moerPercent);
   
   // Menu Bar Display
-  console.log(`${emoji} ${Math.round(carbonData.carbonIntensity)} gCO₂eq/kWh (${moerPercent}%) | size=12 font=UbuntuMono-Bold`);
+  console.log(`${emoji} (${100 - moerPercent}%) ${Math.round(carbonData.carbonIntensity)} gCO₂eq/kWh | size=12 font=UbuntuMono-Bold`);
   console.log('---');
-  console.log(`Zone: ${ELECTRICITY_MAPS_ZONE}`);
-  console.log(`Updated: ${new Date(powerData.datetime).toLocaleTimeString()}`);
-  console.log('---');
-  console.log(`Carbon Intensity: ${Math.round(carbonData.carbonIntensity)} gCO₂eq/kWh`);
-  console.log(`MOER: ${moerValue}th percentile`);
+  console.log(`Grid Carbon Intensity: ${Math.round(carbonData.carbonIntensity)} gCO₂eq/kWh`);
+  console.log(`24hr Relative Cleanliness: ${100 - moerValue}th percentile`);
   console.log('---');
   console.log(`Power from Renewables: ${renewablePercentage}%`);
   console.log(`Power from Fossil Fuels: ${fossilPercentage}%`);
   console.log('---');
   console.log('Power Breakdown:');
-  displayPowerBreakdown(powerData);
+  displayPowerBreakdown(powerData);  
   console.log('---');
-  console.log(`Open ${ELECTRICITY_MAPS_ZONE} in Electricity Maps | href=https://app.electricitymaps.com/zone/${ELECTRICITY_MAPS_ZONE}`);
+  console.log(`Zone: ${ELECTRICITY_MAPS_ZONE}`);
+  console.log(`Grid Power Breakdown Updated: ${new Date(powerData.datetime).toLocaleString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  })}`);
+  console.log(`Cleanliness Forecast Updated: ${new Date(moerTimestamp).toLocaleString('en-GB', {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true
+  })}`);
+  console.log('---');
+  console.log(`Open Electricity Maps, ${ELECTRICITY_MAPS_ZONE} | href=https://app.electricitymaps.com/zone/${ELECTRICITY_MAPS_ZONE}`);
 })
 .catch(error => {
   console.log('⚡ Error');
