@@ -9,11 +9,11 @@
 // <xbar.image>https://raw.githubusercontent.com/jasonm-jones/carbon-intensity-xbar/79b01fbcdb4c535b78718b1699c477484ddf8bdb/CarbonIntensityScreenshot.png</xbar.image>
 // <xbar.dependencies>node, npm</xbar.dependencies>
 // <xbar.abouturl>https://github.com/jasonm-jones/carbon-intensity-xbar</xbar.abouturl>
-// <xbar.var>string ELECTRICITY_MAPS_API_KEY: Your Electricity Maps API key from https://api-portal.electricitymaps.com/signup</xbar.var>
-// <xbar.var>string ELECTRICITY_MAPS_ZONE: Your Electricity Maps zone. Find your zone at https://app.electricitymaps.com/map (click your location and find your zone in the URL) or at https</xbar.var>
-// <xbar.var>string WATTTIME_USERNAME: Your WattTime username from https://www.watttime.org/api-documentation/#register-new-user</xbar.var>
-// <xbar.var>string WATTTIME_PASSWORD: Your WattTime password</xbar.var>
-// <xbar.var>string WATTTIME_ZONE: Your WattTime 'Grid Region Abbreviation. Find yours at https://www.watttime.org/explorer/</xbar.var>
+// <xbar.var>string(ELECTRICITY_MAPS_API_KEY=""): Your Electricity Maps API key from https://api-portal.electricitymaps.com/signup</xbar.var>
+// <xbar.var>string(ELECTRICITY_MAPS_ZONE=""): Your Electricity Maps zone. Find your zone at https://app.electricitymaps.com/map</xbar.var>
+// <xbar.var>string(WATTTIME_USERNAME=""): Your WattTime username from https://www.watttime.org/api-documentation/#register-new-user</xbar.var>
+// <xbar.var>string(WATTTIME_PASSWORD=""): Your WattTime password</xbar.var>
+// <xbar.var>string(WATTTIME_ZONE=""): Your WattTime Grid Region Abbreviation. Find yours at https://www.watttime.org/explorer/</xbar.var>
 
 
 const https = require('https');
@@ -125,18 +125,73 @@ function getEmoji(percentile) {
 }
 
 function displayPowerBreakdown(powerData) {
+  // Power source emojis
+  const sourceEmojis = {
+    wind: "💨️",
+    solar: "☀️",
+    hydro: "💧",
+    biomass: "🌱",
+    geothermal: "🌋",
+    nuclear: "⚛️",
+    coal: "🪨",
+    gas: "⛽",
+    oil: "🛢️",
+    unknown: "❓"
+  };
+
   const totalPower = Object.values(powerData.powerConsumptionBreakdown).reduce((a, b) => a + b, 0);
   Object.entries(powerData.powerConsumptionBreakdown)
     .sort(([, a], [, b]) => b - a)
     .forEach(([source, value]) => {
       const percentage = Math.round((value / totalPower) * 100);
       if (percentage > 0) {
-        console.log(`${source}: ${percentage}%`);
+        const emoji = sourceEmojis[source] || "❓";
+        console.log(`${emoji} ${source}: ${percentage}%`);
       }
     });
 }
 
+// Validate Configuration
+function validateConfig() {
+  const errors = [];
+  
+  // Check for required Electricity Maps configuration
+  if (!ELECTRICITY_MAPS_API_KEY) {
+    errors.push("🔴 Missing Electricity Maps API key. Get one at https://api-portal.electricitymaps.com/signup");
+  }
+  if (!ELECTRICITY_MAPS_ZONE) {
+    errors.push("🔴 Missing Electricity Maps zone. Find your zone at https://app.electricitymaps.com/map (click on the map and find your zone in the URL) or https://api.electricitymap.org/v3/zones");
+  }
+
+  if (!WATTTIME_USERNAME) {
+    errors.push("🔴 Missing WattTime username. Sign up at https://www.watttime.org/api-documentation/#register-new-user");
+  }
+  if (!WATTTIME_PASSWORD) {
+    errors.push("🔴 Missing WattTime password");
+  }
+  if (!WATTTIME_ZONE) {
+    errors.push("🔴 Missing WattTime zone. Find your grid region at https://www.watttime.org/explorer/");
+  }
+
+
+  return errors;
+}
+
 // Main Execution
+const configErrors = validateConfig();
+
+if (configErrors.length > 0) {
+  console.log('Config Errors');
+  console.log('---');
+  configErrors.forEach(error => {
+    console.log(`${error} | color=red`);
+  });
+  console.log('---');
+  console.log('📖 Quick Start Instructions | href=https://github.com/jasonm-jones/carbon-intensity-xbar#readme');
+  process.exit(0);
+}
+
+// If WattTime is not configured, only make Electricity Maps requests
 Promise.all([
   makeRequest(`/v3/carbon-intensity/latest?zone=${ELECTRICITY_MAPS_ZONE}`),
   makeRequest(`/v3/power-breakdown/latest?zone=${ELECTRICITY_MAPS_ZONE}`),
@@ -182,10 +237,13 @@ Promise.all([
     hour12: true
   })}`);
   console.log('---');
-  console.log(`Open Electricity Maps, ${ELECTRICITY_MAPS_ZONE} | href=https://app.electricitymaps.com/zone/${ELECTRICITY_MAPS_ZONE}`);
+  console.log(`⚡ Open Electricity Maps, ${ELECTRICITY_MAPS_ZONE} | href=https://app.electricitymaps.com/zone/${ELECTRICITY_MAPS_ZONE}`);
+  console.log('📖 View Setup Instructions | href=https://github.com/jasonm-jones/carbon-intensity-xbar#readme');
 })
 .catch(error => {
-  console.log('⚡ Error');
+  console.log('🔴 Error');
   console.log('---');
-  console.log(error.message);
+  console.log(`${error.message} | color=red`);
+  console.log('---');
+  console.log('📖 View Setup Instructions | href=https://github.com/jasonm-jones/carbon-intensity-xbar#readme');
 }); 

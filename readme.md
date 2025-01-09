@@ -3,7 +3,7 @@
 Shows real-time carbon intensity and grid cleanliness data in your menu bar.  The purpose is to help you make real-time decisions about when to run energy-intensive tasks (EV charging, laundry, etc.) to minimize your carbon footprint.  In some parts of the country, the grid may be up to 60% dirtier than other times in the same day.
 
 ## Screenshots
-![Carbon Intensity Plugin](https://raw.githubusercontent.com/jasonm-jones/carbon-intensity-xbar/79b01fbcdb4c535b78718b1699c477484ddf8bdb/CarbonIntensityScreenshot.png)
+![Carbon Intensity Plugin](https://raw.githubusercontent.com/jasonm-jones/carbon-intensity-xbar/main/carbon-intensity-screenshot.png)
 
 ## Understanding the Display
 
@@ -18,7 +18,7 @@ The emoji shows how clean your electricity is right now relative to the next 24 
 
 | Emoji | Meaning |
 |-------|---------|
-| 🌿 | Extremely Clean - Among the cleanest 20% of times |
+| 🌿 | Extremely Clean - Among the cleanest 20% of the next 24 hours |
 | 🌱 | Cleaner than Average |
 | 😑 | Average Conditions |
 | 😫 | Dirtier than Average |
