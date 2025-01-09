@@ -79,6 +79,20 @@ Find the zone for your location:
 - [Electricity Maps Zones](https://static.electricitymaps.com/api/docs/index.html#zones)
 - [WattTime Balancing Authorities](https://www.watttime.org/api-documentation/#ba-from-location)
 
+## Finding Your Zone
+
+1. **Electricity Maps Zone**:
+   - Visit [Electricity Maps Live Map](https://app.electricitymaps.com/map)
+   - Click on your location
+   - Your zone ID will appear in the URL (e.g., `US-CAISO_NORTH`)
+
+2. **WattTime Zone**:
+   - Visit [WattTime Explorer](https://www.watttime.org/explorer/)
+   - Enter your location
+   - Your balancing authority code will be shown (e.g., `CAISO_NORTH`)
+
+Common US zones for reference:
+
 ## Features
 - Real-time carbon intensity in gCO₂eq/kWh
 - Grid cleanliness percentile
