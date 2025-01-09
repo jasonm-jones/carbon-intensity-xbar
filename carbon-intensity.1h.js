@@ -4,8 +4,16 @@
 // <xbar.title>Carbon Intensity</xbar.title>
 // <xbar.version>v1.0</xbar.version>
 // <xbar.author>Jason Jones</xbar.author>
-// <xbar.desc>Shows current carbon intensity of the grid from Electricity Maps and the relative cleanliness of the grid from WattTime</xbar.desc>
-// <xbar.dependencies>node, npm, xbar, Electricity Maps, WattTime</xbar.dependencies>
+// <xbar.author.github>jasonm-jones</xbar.author.github>
+// <xbar.desc>Shows real-time carbon intensity and grid cleanliness to help you minimize your carbon footprint by running energy-intensive tasks at cleaner times.</xbar.desc>
+// <xbar.image>https://raw.githubusercontent.com/jasonm-jones/carbon-intensity-xbar/79b01fbcdb4c535b78718b1699c477484ddf8bdb/CarbonIntensityScreenshot.png</xbar.image>
+// <xbar.dependencies>node, npm</xbar.dependencies>
+// <xbar.abouturl>https://github.com/jasonm-jones/carbon-intensity-xbar</xbar.abouturl>
+// <xbar.var>string ELECTRICITY_MAPS_API_KEY: Your Electricity Maps API key from https://api-portal.electricitymaps.com/signup</xbar.var>
+// <xbar.var>string ELECTRICITY_MAPS_ZONE: Your Electricity Maps zone (e.g., US-CAISO_NORTH for Northern California)</xbar.var>
+// <xbar.var>string WATTTIME_USERNAME: Your WattTime username from https://www.watttime.org/api-documentation/#register-new-user</xbar.var>
+// <xbar.var>string WATTTIME_PASSWORD: Your WattTime password</xbar.var>
+// <xbar.var>string WATTTIME_ZONE: Your WattTime zone (e.g., CAISO_NORTH for Northern California)</xbar.var>
 
 
 const https = require('https');
