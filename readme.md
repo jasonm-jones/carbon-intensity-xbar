@@ -51,6 +51,7 @@ This can help you decide when to run energy-intensive tasks for minimum environm
 
 3. Configure the plugin:
    - Create a new file in the xbar plugins directory called `carbon-intensity.1h.js.vars.json`
+     (typically at `~/Library/Application Support/xbar/plugins/carbon-intensity.1h.js.vars.json`)
    - Copy this template and replace with your values:
      ```json
      {
