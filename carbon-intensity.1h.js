@@ -10,10 +10,10 @@
 // <xbar.dependencies>node, npm</xbar.dependencies>
 // <xbar.abouturl>https://github.com/jasonm-jones/carbon-intensity-xbar</xbar.abouturl>
 // <xbar.var>string ELECTRICITY_MAPS_API_KEY: Your Electricity Maps API key from https://api-portal.electricitymaps.com/signup</xbar.var>
-// <xbar.var>string ELECTRICITY_MAPS_ZONE: Your Electricity Maps zone. Find your zone at https://app.electricitymaps.com/map (click your location)</xbar.var>
+// <xbar.var>string ELECTRICITY_MAPS_ZONE: Your Electricity Maps zone. Find your zone at https://app.electricitymaps.com/map (click your location and find your zone in the URL) or at https</xbar.var>
 // <xbar.var>string WATTTIME_USERNAME: Your WattTime username from https://www.watttime.org/api-documentation/#register-new-user</xbar.var>
 // <xbar.var>string WATTTIME_PASSWORD: Your WattTime password</xbar.var>
-// <xbar.var>string WATTTIME_ZONE: Your WattTime balancing authority. Find your zone at https://www.watttime.org/explorer/</xbar.var>
+// <xbar.var>string WATTTIME_ZONE: Your WattTime 'Grid Region Abbreviation. Find yours at https://www.watttime.org/explorer/</xbar.var>
 
 
 const https = require('https');
