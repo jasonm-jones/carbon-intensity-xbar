@@ -6,7 +6,7 @@
 // <xbar.author>Jason Jones</xbar.author>
 // <xbar.author.github>jasonm-jones</xbar.author.github>
 // <xbar.desc>Shows real-time carbon intensity and grid cleanliness to help you minimize your carbon footprint by running energy-intensive tasks at cleaner times.</xbar.desc>
-// <xbar.image>https://raw.githubusercontent.com/jasonm-jones/carbon-intensity-xbar/79b01fbcdb4c535b78718b1699c477484ddf8bdb/CarbonIntensityScreenshot.png</xbar.image>
+// <xbar.image>https://github.com/jasonm-jones/carbon-intensity-xbar/raw/main/carbon-intensity-screenshot-v1.1.png</xbar.image>
 // <xbar.dependencies>node, npm</xbar.dependencies>
 // <xbar.abouturl>https://github.com/jasonm-jones/carbon-intensity-xbar</xbar.abouturl>
 // <xbar.var>string(ELECTRICITY_MAPS_API_KEY=""): Your Electricity Maps API key from https://api-portal.electricitymaps.com/signup</xbar.var>
