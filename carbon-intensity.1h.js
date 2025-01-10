@@ -2,7 +2,7 @@
 
 // Metadata
 // <xbar.title>Carbon Intensity</xbar.title>
-// <xbar.version>v1.0</xbar.version>
+// <xbar.version>v1.1</xbar.version>
 // <xbar.author>Jason Jones</xbar.author>
 // <xbar.author.github>jasonm-jones</xbar.author.github>
 // <xbar.desc>Shows real-time carbon intensity and grid cleanliness to help you minimize your carbon footprint by running energy-intensive tasks at cleaner times.</xbar.desc>
