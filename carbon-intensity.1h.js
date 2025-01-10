@@ -1,4 +1,4 @@
-#!/opt/homebrew/bin/node
+#!/usr/bin/env -S PATH="${PATH}:/opt/homebrew/bin:/usr/local/bin" node
 
 // Metadata
 // <xbar.title>Carbon Intensity</xbar.title>
@@ -11,10 +11,6 @@
 // <xbar.abouturl>https://github.com/jasonm-jones/carbon-intensity-xbar</xbar.abouturl>
 // <xbar.var>string(ELECTRICITY_MAPS_API_KEY=""): Your Electricity Maps API key from https://api-portal.electricitymaps.com/signup</xbar.var>
 // <xbar.var>string(ELECTRICITY_MAPS_ZONE=""): Your Electricity Maps zone. Find your zone at https://app.electricitymaps.com/map</xbar.var>
-// <xbar.var>string(WATTTIME_USERNAME=""): Your WattTime username from https://www.watttime.org/api-documentation/#register-new-user</xbar.var>
-// <xbar.var>string(WATTTIME_PASSWORD=""): Your WattTime password</xbar.var>
-// <xbar.var>string(WATTTIME_ZONE=""): Your WattTime Grid Region Abbreviation. Find yours at https://www.watttime.org/explorer/</xbar.var>
-
 
 const https = require('https');
 
@@ -32,12 +28,25 @@ if (!process.env.XBAR) {
 // API Configuration
 const ELECTRICITY_MAPS_API_KEY =  process.env.ELECTRICITY_MAPS_API_KEY;
 const ELECTRICITY_MAPS_ZONE = process.env.ELECTRICITY_MAPS_ZONE;
-const WATTTIME_USERNAME =  process.env.WATTTIME_USERNAME;
-const WATTTIME_PASSWORD =  process.env.WATTTIME_PASSWORD;
-const WATTTIME_ZONE =  process.env.WATTTIME_ZONE;
 
 // Display Configuration
-const EMOJIS = ["🌿", "🌱", "😑", "😫", "😡", "⛔", "❓"];
+const EMOJIS = ["🌿", "🌱", "😑", "😡", "⛔", "❓"];
+
+
+// Validate Configuration
+function validateConfig() {
+  const errors = [];
+  
+  // Check for required Electricity Maps configuration
+  if (!ELECTRICITY_MAPS_API_KEY) {
+    errors.push("🔴 Missing Electricity Maps API key. Get one at https://api-portal.electricitymaps.com/signup");
+  }
+  if (!ELECTRICITY_MAPS_ZONE) {
+    errors.push("🔴 Missing Electricity Maps zone. Find your zone at https://app.electricitymaps.com/map (click on the map and find your zone in the URL) or https://api.electricitymap.org/v3/zones");
+  }
+
+  return errors;
+}
 
 // Helper Functions
 function makeRequest(path) {
@@ -51,36 +60,14 @@ function makeRequest(path) {
   });
 }
 
-function getWattTimeToken() {
-  return new Promise((resolve, reject) => {
-    const auth = Buffer.from(`${WATTTIME_USERNAME}:${WATTTIME_PASSWORD}`).toString('base64');
-    const options = {
-      hostname: 'api2.watttime.org',
-      path: '/v2/login',
-      headers: { 'Authorization': `Basic ${auth}` }
-    };
-    https.get(options, handleResponse(resolve, reject, response => response.token));
-  });
-}
-
-function getMOER(token) {
-  return new Promise((resolve, reject) => {
-    const options = {
-      hostname: 'api2.watttime.org',
-      path: `/v3/signal-index?region=${WATTTIME_ZONE}&signal_type=co2_moer`,
-      headers: { 'Authorization': `Bearer ${token}` }
-    };
-    https.get(options, handleResponse(resolve, reject));
-  });
-}
-
-function handleResponse(resolve, reject, transform = response => response) {
+// Function to handle API responses
+function handleResponse(resolve, reject) {
   return (resp) => {
     let data = '';
     resp.on('data', (chunk) => { data += chunk; });
     resp.on('end', () => {
       try {
-        resolve(transform(JSON.parse(data)));
+        resolve(JSON.parse(data));
       } catch (error) {
         reject(error);
       }
@@ -88,40 +75,40 @@ function handleResponse(resolve, reject, transform = response => response) {
   };
 }
 
-function calculateFossilFuelPercentage(powerData) {
-  if (!powerData?.powerConsumptionBreakdown) {
-    console.error('Power data is missing or invalid:', powerData);
-    return 'N/A';
-  }
-
-  const fossilFuels = ['coal', 'gas', 'oil', 'unknown'];
-  const totalPower = Object.values(powerData.powerConsumptionBreakdown).reduce((a, b) => a + b, 0);
-  const fossilPower = fossilFuels.reduce((sum, fuel) => 
-    sum + (powerData.powerConsumptionBreakdown[fuel] || 0), 0);
-  return Math.round((fossilPower / totalPower) * 100);
+// fetch hourly carbon intensity data
+async function getHourlyCarbonIntensity(zone) {
+  const response = await makeRequest(`/v3/carbon-intensity/history?zone=${zone}&last_hours=24`);
+  return response.history; 
 }
 
-function calculateRenewablePercentage(powerData) {
-  if (!powerData?.powerConsumptionBreakdown) {
-    console.error('Power data is missing or invalid:', powerData);
-    return 'N/A';
-  }
+// Function to calculate percentile
+function calculatePercentile(value, data) {
+  const sortedData = data.sort((a, b) => a.carbonIntensity - b.carbonIntensity);
+  const index = sortedData.findIndex(item => item.carbonIntensity >= value);
+  return index === -1 ? 100 : (index / sortedData.length) * 100;
+}
 
-  const renewables = ['wind', 'solar', 'hydro', 'biomass', 'geothermal'];
-  const totalPower = Object.values(powerData.powerConsumptionBreakdown).reduce((a, b) => a + b, 0);
-  const renewablePower = renewables.reduce((sum, source) => 
-    sum + (powerData.powerConsumptionBreakdown[source] || 0), 0);
-  return Math.round((renewablePower / totalPower) * 100);
+// Main Execution
+const configErrors = validateConfig();
+
+if (configErrors.length > 0) {
+  console.log('Config Errors');
+  console.log('---');
+  configErrors.forEach(error => {
+    console.log(`${error} | color=red`);
+  });
+  console.log('---');
+  console.log('📖 Quick Start Instructions | href=https://github.com/jasonm-jones/carbon-intensity-xbar#readme');
+  process.exit(0);
 }
 
 function getEmoji(percentile) {
   if (percentile === undefined || percentile === 'N/A') return EMOJIS[6];
-  if (percentile <= 20) return EMOJIS[0];  // Cleanest 20%
-  if (percentile <= 40) return EMOJIS[1];  // Cleaner than average
-  if (percentile <= 60) return EMOJIS[2];  // Average
-  if (percentile <= 80) return EMOJIS[3];  // Dirtier than average
-  if (percentile <= 90) return EMOJIS[4];  // Very dirty
-  return EMOJIS[5];                        // Extremely dirty
+  if (percentile >= 80) return EMOJIS[0];  // Cleanest 20%
+  if (percentile >= 60) return EMOJIS[1];  // Cleaner than average
+  if (percentile >= 40) return EMOJIS[2];  // Average
+  if (percentile >= 20) return EMOJIS[3];  // Dirtier than average
+  return EMOJIS[4];                        // Dirtiest 20%
 }
 
 function displayPowerBreakdown(powerData) {
@@ -139,6 +126,7 @@ function displayPowerBreakdown(powerData) {
     unknown: "❓"
   };
 
+  console.log('Power Breakdown:');
   const totalPower = Object.values(powerData.powerConsumptionBreakdown).reduce((a, b) => a + b, 0);
   Object.entries(powerData.powerConsumptionBreakdown)
     .sort(([, a], [, b]) => b - a)
@@ -151,84 +139,28 @@ function displayPowerBreakdown(powerData) {
     });
 }
 
-// Validate Configuration
-function validateConfig() {
-  const errors = [];
-  
-  // Check for required Electricity Maps configuration
-  if (!ELECTRICITY_MAPS_API_KEY) {
-    errors.push("🔴 Missing Electricity Maps API key. Get one at https://api-portal.electricitymaps.com/signup");
-  }
-  if (!ELECTRICITY_MAPS_ZONE) {
-    errors.push("🔴 Missing Electricity Maps zone. Find your zone at https://app.electricitymaps.com/map (click on the map and find your zone in the URL) or https://api.electricitymap.org/v3/zones");
-  }
-
-  if (!WATTTIME_USERNAME) {
-    errors.push("🔴 Missing WattTime username. Sign up at https://www.watttime.org/api-documentation/#register-new-user");
-  }
-  if (!WATTTIME_PASSWORD) {
-    errors.push("🔴 Missing WattTime password");
-  }
-  if (!WATTTIME_ZONE) {
-    errors.push("🔴 Missing WattTime zone. Find your grid region at https://www.watttime.org/explorer/");
-  }
-
-
-  return errors;
-}
-
-// Main Execution
-const configErrors = validateConfig();
-
-if (configErrors.length > 0) {
-  console.log('Config Errors');
-  console.log('---');
-  configErrors.forEach(error => {
-    console.log(`${error} | color=red`);
-  });
-  console.log('---');
-  console.log('📖 Quick Start Instructions | href=https://github.com/jasonm-jones/carbon-intensity-xbar#readme');
-  process.exit(0);
-}
-
-// If WattTime is not configured, only make Electricity Maps requests
+// Make Electricity Maps API requests
 Promise.all([
   makeRequest(`/v3/carbon-intensity/latest?zone=${ELECTRICITY_MAPS_ZONE}`),
   makeRequest(`/v3/power-breakdown/latest?zone=${ELECTRICITY_MAPS_ZONE}`),
-  getWattTimeToken().then(token => getMOER(token))
+  getHourlyCarbonIntensity(ELECTRICITY_MAPS_ZONE) // Fetch hourly data
 ])
-.then(([carbonData, powerData, moerData]) => {
-
-  const fossilPercentage = calculateFossilFuelPercentage(powerData);
-  const renewablePercentage = calculateRenewablePercentage(powerData);
-  const moerValue = moerData?.data?.[0]?.value ?? 'N/A';
-  const moerPercent = moerValue;
-  const moerTimestamp = moerData?.data?.[0]?.point_time;
-
-  const emoji = getEmoji(moerPercent);
+.then(async ([carbonData, powerData, hourlyData]) => {
+  const currentCarbonIntensity = carbonData.carbonIntensity;
+  const percentile = calculatePercentile(currentCarbonIntensity, hourlyData);
+  const emoji = getEmoji(percentile);
   
   // Menu Bar Display
-  console.log(`${emoji} (${100 - moerPercent}%) ${Math.round(carbonData.carbonIntensity)} gCO₂eq/kWh | size=12 font=UbuntuMono-Bold`);
+  console.log(`${emoji} (${percentile.toFixed(2)}%) ${Math.round(currentCarbonIntensity)} gCO₂eq/kWh | size=12 font=UbuntuMono-Bold`);
   console.log('---');
-  console.log(`Grid Carbon Intensity: ${Math.round(carbonData.carbonIntensity)} gCO₂eq/kWh`);
-  console.log(`24hr Relative Cleanliness: ${100 - moerValue}th percentile`);
+  console.log(`Grid Carbon Intensity: ${Math.round(currentCarbonIntensity)} gCO₂eq/kWh`);
+  console.log(`24hr Relative Cleanliness: ${percentile.toFixed(2)}th percentile`);
+  console.log(`Power from Renewables: ${powerData.renewablePercentage}%`);
   console.log('---');
-  console.log(`Power from Renewables: ${renewablePercentage}%`);
-  console.log(`Power from Fossil Fuels: ${fossilPercentage}%`);
-  console.log('---');
-  console.log('Power Breakdown:');
   displayPowerBreakdown(powerData);  
   console.log('---');
   console.log(`Zone: ${ELECTRICITY_MAPS_ZONE}`);
-  console.log(`Grid Power Breakdown Updated: ${new Date(powerData.datetime).toLocaleString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true
-  })}`);
-  console.log(`Cleanliness Forecast Updated: ${new Date(moerTimestamp).toLocaleString('en-GB', {
+  console.log(`Last Updated: ${new Date(powerData.datetime).toLocaleString('en-GB', {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
