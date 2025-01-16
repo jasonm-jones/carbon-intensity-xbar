@@ -1,6 +1,7 @@
 # Carbon Intensity xbar Plugin
 
-Shows real-time carbon intensity and grid cleanliness data in your menu bar.  In some parts of the country, the grid may be up to [80% dirtier](https://github.com/jasonm-jones/grid-carbon-intensity/blob/main/README.md) than other times in the same day.  The purpose is to help you make real-time decisions about when to run energy-intensive tasks (EV charging, laundry, etc.) to minimize your carbon footprint. 
+What if you could reduce your electricity carbon footprint by 20-50% or more without spending a dime?  This plugin shows real-time carbon intensity and cleanliness data for your local grid in your menu bar.  The purpose is to help you make real-time decisions about when to run electricity-intensive tasks (laundry, HVAC, EV charging, etc.) to minimize your carbon footprint. In some parts of the country, the grid may be up to [80% dirtier](https://github.com/jasonm-jones/grid-carbon-intensity/blob/main/README.md) than other times in the same day.  
+<img src="./avg-daily-carbon-intensity-variability.png" width="800"/>
 
 ## Screenshots
 <img src="./screenshot-dirty-grid.png" width="400"/>
