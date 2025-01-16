@@ -2,17 +2,18 @@
 
 // Metadata
 // <xbar.title>Carbon Intensity</xbar.title>
-// <xbar.version>v1.2</xbar.version>
+// <xbar.version>v1.3</xbar.version>
 // <xbar.author>Jason Jones</xbar.author>
 // <xbar.author.github>jasonm-jones</xbar.author.github>
 // <xbar.desc>Shows real-time carbon intensity and grid cleanliness to help you minimize your carbon footprint by running energy-intensive tasks at cleaner times.</xbar.desc>
 // <xbar.image>https://github.com/jasonm-jones/carbon-intensity-xbar/raw/main/carbon-intensity-screenshot-v1.1.png</xbar.image>
 // <xbar.dependencies>node, npm</xbar.dependencies>
 // <xbar.abouturl>https://github.com/jasonm-jones/carbon-intensity-xbar</xbar.abouturl>
-// <xbar.var>string(ELECTRICITY_MAPS_API_KEY=""): Your Electricity Maps API key from https://api-portal.electricitymaps.com/signup</xbar.var>
+// <xbar.var>string(ELECTRICITY_MAPS_API_KEY=""): Your FREE Electricity Maps API key from https://api-portal.electricitymaps.com/signup</xbar.var>
 // <xbar.var>string(ELECTRICITY_MAPS_ZONE=""): Your Electricity Maps zone. Find your zone at https://app.electricitymaps.com/map</xbar.var>
 
 const https = require('https');
+const { createCanvas } = require('canvas');
 
 
 // Load variables from either .vars.jsonfile
@@ -31,7 +32,7 @@ const ELECTRICITY_MAPS_ZONE = process.env.ELECTRICITY_MAPS_ZONE;
 
 // Display Configuration
 const EMOJIS = ["🌿", "🌱", "😑", "😡", "⛔", "❓"];
-
+const TEXT_COLOR = '#94a3b8';  // Slate-400 (works in both light/dark modes)
 
 // Validate Configuration
 function validateConfig() {
@@ -166,7 +167,7 @@ function displayPowerBreakdown(powerData) {
     unknown: "❓"
   };
 
-  console.log('Power Breakdown:');
+  console.log(`Current Power Breakdown | color=${TEXT_COLOR}`);
   const totalPower = Object.values(powerData.powerConsumptionBreakdown).reduce((a, b) => a + b, 0);
   Object.entries(powerData.powerConsumptionBreakdown)
     .sort(([, a], [, b]) => b - a)
@@ -174,9 +175,129 @@ function displayPowerBreakdown(powerData) {
       const percentage = Math.round((value / totalPower) * 100);
       if (percentage > 0) {
         const emoji = sourceEmojis[source] || "❓";
-        console.log(`${emoji} ${source}: ${percentage}%`);
+        console.log(`${emoji} ${source}: ${percentage}% | color=${TEXT_COLOR}`);
       }
     });
+}
+
+function generateGraph(hourlyData) {
+  const canvas = createCanvas(250, 100);
+  const ctx = canvas.getContext('2d');
+  
+  // Constants for styling
+  const COLORS = {
+    background: 'rgba(100, 116, 139, 0.15)',  // Slate-500 with 15% opacity
+    axis: 'rgba(255, 255, 255, 0.8)',      // White with 80% opacity for dark mode
+    gridLines: 'rgba(51, 65, 85, 0.3)',    // Slate-700 with 30% opacity
+    labels: 'rgba(255, 255, 255, 0.8)',    // White with 80% opacity for dark mode
+    bars: '#3b82f6',                       // Blue-500 (visible in both modes)
+  };
+  
+  // Layout constants
+  const MARGIN_LEFT = 30;
+  const MARGIN_RIGHT = 5;
+  const MARGIN_TOP = 10;
+  const MARGIN_BOTTOM = 20;
+  const GRAPH_WIDTH = canvas.width - MARGIN_LEFT - MARGIN_RIGHT;
+  const GRAPH_HEIGHT = canvas.height - MARGIN_TOP - MARGIN_BOTTOM;
+
+  // Set background
+  ctx.fillStyle = COLORS.background;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  
+  // Get data range
+  const last24Hours = hourlyData.slice(-24);
+  const values = last24Hours.map(h => h.carbonIntensity);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const range = max - min;
+
+  // Draw y-axis grid lines and labels
+  ctx.strokeStyle = COLORS.gridLines;
+  ctx.fillStyle = COLORS.labels;
+  ctx.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.textAlign = 'right';
+  
+  // Draw exactly 3 evenly spaced labels (min, middle, max)
+  const labelValues = [
+    min,                    // Bottom label (min)
+    min + (range / 2),      // Middle label
+    max                     // Top label (max)
+  ];
+  
+  labelValues.forEach(value => {
+    const y = MARGIN_TOP + GRAPH_HEIGHT - (((value - min) / range) * GRAPH_HEIGHT);
+    
+    // Draw grid line
+    ctx.beginPath();
+    ctx.setLineDash([4, 4]); // Dotted line
+    ctx.moveTo(MARGIN_LEFT, y);
+    ctx.lineTo(canvas.width - MARGIN_RIGHT, y);
+    ctx.stroke();
+    
+    // Draw label
+    ctx.setLineDash([]); // Reset line style
+    ctx.fillText(`${Math.round(value)}`, MARGIN_LEFT - 8, y + 4);
+  });
+
+  // Draw x-axis time labels and ticks
+  ctx.textAlign = 'left';
+  ctx.fillStyle = COLORS.labels;
+  ctx.strokeStyle = COLORS.axis;
+  
+  for (let i = 0; i < 5; i++) {
+    const x = MARGIN_LEFT + (i * GRAPH_WIDTH / 4);
+    const hoursAgo = 24 - (i * 6);  // 24h, 18h, 12h, 6h, now
+    const date = new Date();
+    date.setHours(date.getHours() - hoursAgo);
+    const timeStr = date.toLocaleTimeString('en-US', { 
+      hour: 'numeric',
+      hour12: true 
+    });
+
+    // Only show first 4 tick marks and labels
+    if (i < 4) {
+      // Draw tick mark
+      ctx.beginPath();
+      ctx.moveTo(x, canvas.height - MARGIN_BOTTOM);
+      ctx.lineTo(x, canvas.height - MARGIN_BOTTOM + 4);  // 4px tick mark
+      ctx.stroke();
+
+      // Draw label
+      ctx.fillText(timeStr, x - 10, canvas.height - 5);  // Shifted left by 10px to center better with tick
+    }
+  }
+
+  // Draw bars
+  ctx.fillStyle = COLORS.bars;
+  const barWidth = (GRAPH_WIDTH / last24Hours.length) * 0.8; // 80% of available space
+  const barSpacing = (GRAPH_WIDTH / last24Hours.length) * 0.2; // 20% for spacing
+
+  last24Hours.forEach((hour, i) => {
+    const x = MARGIN_LEFT + (i * (barWidth + barSpacing));
+    const barHeight = ((hour.carbonIntensity - min) / range) * GRAPH_HEIGHT;
+    const y = MARGIN_TOP + GRAPH_HEIGHT - barHeight;
+    ctx.fillRect(x, y, barWidth, barHeight);
+  });
+
+  // Draw axes
+  ctx.strokeStyle = COLORS.axis;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([]);
+  
+  // Draw y-axis
+  ctx.beginPath();
+  ctx.moveTo(MARGIN_LEFT, MARGIN_TOP);
+  ctx.lineTo(MARGIN_LEFT, canvas.height - MARGIN_BOTTOM);
+  ctx.stroke();
+
+  // Draw x-axis
+  ctx.beginPath();
+  ctx.moveTo(MARGIN_LEFT, canvas.height - MARGIN_BOTTOM);
+  ctx.lineTo(canvas.width - MARGIN_RIGHT, canvas.height - MARGIN_BOTTOM);
+  ctx.stroke();
+
+  return canvas.toDataURL().split(',')[1];
 }
 
 // Only run the main execution if not being tested
@@ -185,7 +306,7 @@ if (process.env.NODE_ENV !== 'test') {
   Promise.all([
     makeRequest(`/v3/carbon-intensity/latest?zone=${ELECTRICITY_MAPS_ZONE}`),
     makeRequest(`/v3/power-breakdown/latest?zone=${ELECTRICITY_MAPS_ZONE}`),
-    getHourlyCarbonIntensity(ELECTRICITY_MAPS_ZONE) // Fetch hourly data
+    getHourlyCarbonIntensity(ELECTRICITY_MAPS_ZONE) // Only gets 24h of data
   ])
   .then(async ([carbonData, powerData, hourlyData]) => {
     const currentCarbonIntensity = hourlyData[hourlyData.length - 1].carbonIntensity;
@@ -193,18 +314,20 @@ if (process.env.NODE_ENV !== 'test') {
     const range = get24HourRange(hourlyData);
     const emoji = getEmoji(percentile);
 
-    // Menu Bar Display
-    console.log(`${emoji} (${percentile.toFixed(0)}%) ${Math.round(currentCarbonIntensity)} gCO₂eq/kWh | size=12 font=UbuntuMono-Bold`);
+    // First output line is Menu Bar Display
+    console.log(`${emoji} (${percentile.toFixed(0)}%) ${Math.round(currentCarbonIntensity)} gCO₂ | size=12 font=UbuntuMono-Bold`);
     console.log('---');
-    console.log(`24hr Relative Cleanliness: ${percentile.toFixed(0)} percentile`);
-    console.log(`Grid Carbon Intensity: ${Math.round(currentCarbonIntensity)} gCO₂eq/kWh`);
-    console.log(`24hr Range: ${Math.round(range.min)} - ${Math.round(range.max)} gCO₂eq/kWh`);
-    console.log('---');
-    console.log(`Power from Renewables: ${powerData.renewablePercentage}%`);
+    console.log(`Relative Cleanliness (24hr): ${percentile.toFixed(0)} percentile | color=${TEXT_COLOR}`);
+    console.log(`Grid Carbon Intensity: ${Math.round(currentCarbonIntensity)} gCO₂eq/kWh | color=${TEXT_COLOR}`);
+    //console.log(`Range: ${Math.round(range.min)} - ${Math.round(range.max)} gCO₂eq/kWh | color=${TEXT_COLOR}`);
+    const graphBase64 = generateGraph(hourlyData);
+    console.log(`| image=${graphBase64}`);
+    
     console.log('---');
     displayPowerBreakdown(powerData);  
+    console.log(`Power from Renewables: ${powerData.renewablePercentage}% | color=${TEXT_COLOR}`);
     console.log('---');
-    console.log(`Zone: ${ELECTRICITY_MAPS_ZONE}`);
+    console.log(`Zone: ${ELECTRICITY_MAPS_ZONE} | color=${TEXT_COLOR}`);
     console.log(`Last Updated: ${new Date(powerData.datetime).toLocaleString('en-GB', {
       day: 'numeric',
       month: 'short',
@@ -212,10 +335,10 @@ if (process.env.NODE_ENV !== 'test') {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true
-    })}`);
+    })} | color=${TEXT_COLOR}`);
     console.log('---');
     console.log(`⚡ Open Electricity Maps, ${ELECTRICITY_MAPS_ZONE} | href=https://app.electricitymaps.com/zone/${ELECTRICITY_MAPS_ZONE}`);
-    console.log('📖 View Setup Instructions | href=https://github.com/jasonm-jones/carbon-intensity-xbar#readme');
+    console.log('📖 View Setup & Usage Instructions | href=https://github.com/jasonm-jones/carbon-intensity-xbar#readme');
 
     })
     .catch(error => {
@@ -223,7 +346,7 @@ if (process.env.NODE_ENV !== 'test') {
       console.log('---');
       console.log(`${error.message} | color=red`);
       console.log('---');
-      console.log('📖 View Setup Instructions | href=https://github.com/jasonm-jones/carbon-intensity-xbar#readme');
+      console.log('📖 View Setup & Usage Instructions | href=https://github.com/jasonm-jones/carbon-intensity-xbar#readme');
     });
 }
 

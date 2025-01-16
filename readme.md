@@ -1,16 +1,22 @@
 # Carbon Intensity xbar Plugin
 
-Shows real-time carbon intensity and grid cleanliness data in your menu bar.  The purpose is to help you make real-time decisions about when to run energy-intensive tasks (EV charging, laundry, etc.) to minimize your carbon footprint.  In some parts of the country, the grid may be up to 60% dirtier than other times in the same day.
+Shows real-time carbon intensity and grid cleanliness data in your menu bar.  In some parts of the country, the grid may be up to [80% dirtier](https://github.com/jasonm-jones/grid-carbon-intensity/blob/main/README.md) than other times in the same day.  The purpose is to help you make real-time decisions about when to run energy-intensive tasks (EV charging, laundry, etc.) to minimize your carbon footprint. 
 
 ## Screenshots
-![Carbon Intensity Plugin](https://raw.githubusercontent.com/jasonm-jones/carbon-intensity-xbar/main/carbon-intensity-screenshot.png)
+<img src="./screenshot-dirty-grid.png" width="400"/>
 
+<!-->
+| Dirty Grid Example | *Relatively* Clean Grid Example |
+|------------|-----------|
+| <img src="./carbon-intensity-screenshot.png" width="400"/> | <img src="./screenshot-happy-state.png" width="400"/> |
+-->
+<!--github image source https://raw.githubusercontent.com/jasonm-jones/carbon-intensity-xbar/main/screenshot-happy-state.png-->
 ## Understanding the Display
 
 The plugin shows several key metrics:
+- **Relative Cleanliness** (%): How clean the grid is compared to the last 24 hours
 - **Carbon Intensity** (gCO₂eq/kWh): The amount of carbon dioxide emitted per kilowatt-hour of electricity used
-- **24hr Relative Cleanliness** (%): How clean the grid is compared to the last 24 hours
-- **Power Source Breakdown**: Percentage of power from renewable and fossil fuel sources
+- **Current Power Breakdown**: Percentage of power from renewable and fossil fuel sources
 
 ### Grid Cleanliness Indicators
 
@@ -37,8 +43,16 @@ This can help you decide when to run energy-intensive tasks for minimum environm
 2. Open xbar and click "Browse Plugins"
 3. Search for "Carbon Intensity"
 4. Click "Install"
-5. Configure your API keys and zones (see Configuration below)
-6. Refresh xbar
+5. Install required dependencies:
+   ```bash
+   # Install system dependencies (macOS)
+   brew install pkg-config cairo pango libpng jpeg giflib
+   
+   # Install npm packages
+   npm install canvas
+   ```
+6. Configure your API keys and zones (see Configuration below)
+7. Refresh xbar
 
 ## Configuration
 

@@ -4,5 +4,8 @@
   },
   "scripts": {
     "test": "NODE_ENV=test jest"
+  },
+  "dependencies": {
+    "canvas": "^2.11.2"
   }
 }

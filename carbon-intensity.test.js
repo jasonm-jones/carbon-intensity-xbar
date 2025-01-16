@@ -1,5 +1,5 @@
 // Import the function to test
-const { calculatePercentile } = require('./carbon-intensity.1h.js');
+const { calculatePercentile } = require('./carbon-intensity.15m.js');
 
 describe('calculatePercentile', () => {
   // Simple test data
