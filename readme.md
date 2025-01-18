@@ -4,7 +4,7 @@ What if you could reduce your electricity carbon footprint by 20-50% or more wit
 <img src="./images/avg-daily-carbon-intensity-variability.png" width="800"/>
 
 ## Screenshots
-<img src="./images/screenshot-dirty-grid.png" width="400"/>
+<img src="./images/screenshot-dirty-v1.3.1.png" width="400"/>
 
 <!-->
 | Dirty Grid Example | *Relatively* Clean Grid Example |
