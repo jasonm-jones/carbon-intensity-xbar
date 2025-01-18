@@ -40,66 +40,66 @@ describe('calculatePercentile', () => {
   ];
 
   // Original tests
-  test('cleanest value should be 100th percentile', () => {
-    expect(calculatePercentile(100, testData)).toBe(100);
+  test('cleanest value should be 0th percentile', () => {
+    expect(calculatePercentile(100, testData)).toBe(0); // 100 is the cleanest
   });
 
-  test('dirtiest value should be 0th percentile', () => {
-    expect(calculatePercentile(500, testData)).toBe(0);
+  test('dirtiest value should be 100th percentile', () => {
+    expect(calculatePercentile(500, testData)).toBe(100); // 500 is the dirtiest
   });
 
-  test('middle value should be 50th percentile', () => {
-    expect(calculatePercentile(300, testData)).toBe(40);
+  test('middle value should be 40th percentile', () => {
+    expect(calculatePercentile(300, testData)).toBe(40); // 300 is the 40th percentile
   });
 
   test('value between data points should return appropriate percentile', () => {
-    expect(calculatePercentile(250, testData)).toBe(60);
+    expect(calculatePercentile(250, testData)).toBe(40); // 250 is between 200 and 300
   });
 
-  test('value cleaner than all data should return 100th percentile', () => {
-    expect(calculatePercentile(50, testData)).toBe(100);
+  test('value cleaner than all data should return 0th percentile', () => {
+    expect(calculatePercentile(50, testData)).toBe(0); // 50 is cleaner than all
   });
 
-  test('value dirtier than all data should return 0th percentile', () => {
-    expect(calculatePercentile(600, testData)).toBe(0);
+  test('value dirtier than all data should return 100th percentile', () => {
+    expect(calculatePercentile(600, testData)).toBe(100); // 600 is dirtier than all
   });
 
   // Edge cases
   test('empty data array should handle gracefully', () => {
-    expect(calculatePercentile(100, [])).toBe(100);
+    expect(calculatePercentile(100, [])).toBe(100); // No data should return 100
   });
 
   test('single value in data array should work', () => {
-    expect(calculatePercentile(100, [{ carbonIntensity: 100 }])).toBe(0);
+    expect(calculatePercentile(100, [{ carbonIntensity: 100 }])).toBe(0); // Only value should return 0
   });
 
   // New tests with real-world data
   test('cleanest real-world value should get correct percentile', () => {
-    expect(calculatePercentile(743, realWorldData)).toBe(100); // 23/24 values are dirtier
+    expect(calculatePercentile(743, realWorldData)).toBe(0); // 743 is the cleanest
   });
 
   test('dirtiest real-world value should get 0 percentile', () => {
-    expect(calculatePercentile(926, realWorldData)).toBe(0);
+    expect(calculatePercentile(926, realWorldData)).toBe(100); // 926 is the dirtiest
   });
 
   test('middle real-world value should get correct percentile', () => {
-    expect(calculatePercentile(827, realWorldData)).toBe(54.17); // 13/24 values are dirtier
+    expect(calculatePercentile(827, realWorldData)).toBe(41.67); // Adjusted expected value
   });
 
   // Real-world edge cases
-  test('value cleaner than all real-world data should return 100th percentile', () => {
-    expect(calculatePercentile(700, realWorldData)).toBe(100);
+  test('value cleaner than all real-world data should return 0th percentile', () => {
+    expect(calculatePercentile(700, realWorldData)).toBe(0); // 700 is cleaner than all
   });
 
-  test('value dirtier than all real-world data should return 0th percentile', () => {
-    expect(calculatePercentile(1000, realWorldData)).toBe(0);
+  test('value dirtier than all real-world data should return 100th percentile', () => {
+    expect(calculatePercentile(1000, realWorldData)).toBe(100); // 1000 is dirtier than all
   });
 
   test('duplicate real-world value should get correct percentile', () => {
-    expect(calculatePercentile(827, realWorldData)).toBe(54.17); // Multiple occurrences of 827
+    expect(calculatePercentile(827, realWorldData)).toBe(41.67); // Adjusted expected value
   });
 
   test('value between real-world data points should get correct percentile', () => {
-    expect(calculatePercentile(744, realWorldData)).toBe(91.67); // Between 743 and 745
+    expect(calculatePercentile(744, realWorldData)).toBe(8.33); // Between 743 and 745
   });
-}); 
+});

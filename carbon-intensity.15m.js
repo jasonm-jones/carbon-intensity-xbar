@@ -86,37 +86,30 @@ async function getHourlyCarbonIntensity(zone) {
 function calculatePercentile(value, data) {
   // Handle edge cases
   if (!data || data.length === 0) return 100;
-  
+
   // Extract carbon intensity values from objects if needed
   const intensities = data.map(d => typeof d === 'object' ? d.carbonIntensity : d);
-  
+
   // Sort intensities in ascending order (lower is cleaner)
   const sortedIntensities = [...intensities].sort((a, b) => a - b);
-  
-  // For a single value, return 0 to match test expectation
-  if (sortedIntensities.length === 1) {
-    return value <= sortedIntensities[0] ? 0 : 100;
-  }
 
-  // If value is cleaner than or equal to cleanest value, return 100
-  if (value <= sortedIntensities[0]) return 100;
-  
-  // If value is dirtier than or equal to dirtiest value, return 0
-  if (value >= sortedIntensities[sortedIntensities.length - 1]) return 0;
+  // If value is cleaner than or equal to cleanest value, return 0
+  if (value <= sortedIntensities[0]) return 0;
+
+  // If value is dirtier than or equal to dirtiest value, return 100
+  if (value >= sortedIntensities[sortedIntensities.length - 1]) return 100;
 
   // Special handling for exact matches to handle duplicates correctly
   if (sortedIntensities.includes(value)) {
-    const dirtierCount = sortedIntensities.filter(intensity => intensity > value).length;
+    const cleanerCount = sortedIntensities.filter(intensity => intensity < value).length;
     const equalCount = sortedIntensities.filter(intensity => intensity === value).length;
-    const percentile = ((dirtierCount + (equalCount - 1) / 2) / sortedIntensities.length) * 100;
+    const percentile = ((cleanerCount + (equalCount - 1) / 2) / sortedIntensities.length) * 100;
     return Math.round(percentile * 100) / 100;
   }
 
-  // For values between data points, just count dirtier values
-  const dirtierCount = sortedIntensities.filter(intensity => intensity > value).length;
-  const percentile = (dirtierCount / sortedIntensities.length) * 100;
-  
-  // Round to 2 decimal places
+  // For values between data points, just count cleaner values
+  const cleanerCount = sortedIntensities.filter(intensity => intensity < value).length;
+  const percentile = (cleanerCount / sortedIntensities.length) * 100;
   return Math.round(percentile * 100) / 100;
 }
 
@@ -152,6 +145,7 @@ function getEmoji(percentile) {
   return EMOJIS[4];                        // ⛔ Dirtiest 20%
 }
 
+
 function displayPowerBreakdown(powerData) {
   // Power source emojis
   const sourceEmojis = {
@@ -180,7 +174,7 @@ function displayPowerBreakdown(powerData) {
     });
 }
 
-function generateGraph(hourlyData) {
+function generateGraph(hourlyData, percentile) {
   const canvas = createCanvas(250, 100);
   const ctx = canvas.getContext('2d');
   
@@ -190,7 +184,13 @@ function generateGraph(hourlyData) {
     axis: 'rgba(255, 255, 255, 0.8)',      // White with 80% opacity for dark mode
     gridLines: 'rgba(51, 65, 85, 0.3)',    // Slate-700 with 30% opacity
     labels: 'rgba(255, 255, 255, 0.8)',    // White with 80% opacity for dark mode
-    bars: '#3b82f6',                       // Blue-500 (visible in both modes)
+    quintileColors: [
+      'rgb(74, 222, 128)',  // 🌿 Dark Green - Cleanest 20%
+      'rgb(93, 181, 41)',   // 🌱 Light Green - Cleaner than average
+      'rgb(253, 173, 58)',  // 😑 Yellow - Average
+      'rgb(247, 110, 45)',  // 😡 Orange - Dirtier than average
+      'rgb(220, 20, 9)'     // ⛔ Red - Dirtiest 20%
+    ],
   };
   
   // Layout constants
@@ -255,21 +255,17 @@ function generateGraph(hourlyData) {
       hour12: true 
     });
 
-    // Only show first 4 tick marks and labels
-    if (i < 4) {
-      // Draw tick mark
-      ctx.beginPath();
-      ctx.moveTo(x, canvas.height - MARGIN_BOTTOM);
-      ctx.lineTo(x, canvas.height - MARGIN_BOTTOM + 4);  // 4px tick mark
-      ctx.stroke();
+    // Draw tick mark
+    ctx.beginPath();
+    ctx.moveTo(x, canvas.height - MARGIN_BOTTOM);
+    ctx.lineTo(x, canvas.height - MARGIN_BOTTOM + 4);  // 4px tick mark
+    ctx.stroke();
 
-      // Draw label
-      ctx.fillText(timeStr, x - 10, canvas.height - 5);  // Shifted left by 10px to center better with tick
-    }
+    // Draw label for all ticks, including the 5th
+    ctx.fillText(timeStr, x - 10, canvas.height - 5);  // Shifted left by 10px to center better with tick
   }
 
   // Draw bars
-  ctx.fillStyle = COLORS.bars;
   const barWidth = (GRAPH_WIDTH / last24Hours.length) * 0.8; // 80% of available space
   const barSpacing = (GRAPH_WIDTH / last24Hours.length) * 0.2; // 20% for spacing
 
@@ -277,6 +273,15 @@ function generateGraph(hourlyData) {
     const x = MARGIN_LEFT + (i * (barWidth + barSpacing));
     const barHeight = ((hour.carbonIntensity - min) / range) * GRAPH_HEIGHT;
     const y = MARGIN_TOP + GRAPH_HEIGHT - barHeight;
+
+    // Calculate the percentile for the current hour's carbon intensity
+    const percentile = calculatePercentile(hour.carbonIntensity, values);
+    const invertedPercentile = 100 - percentile; // Invert the percentile for color mapping
+    const quintileIndex = Math.min(Math.floor(invertedPercentile / 20), 4); // Calculate quintile index based on inverted percentile
+
+    // Set the color for the current bar based on its quintile index
+    ctx.fillStyle = COLORS.quintileColors[quintileIndex]; 
+
     ctx.fillRect(x, y, barWidth, barHeight);
   });
 
@@ -317,10 +322,10 @@ if (process.env.NODE_ENV !== 'test') {
     // First output line is Menu Bar Display
     console.log(`${emoji} (${percentile.toFixed(0)}%) ${Math.round(currentCarbonIntensity)} gCO₂ | size=12 font=UbuntuMono-Bold`);
     console.log('---');
-    console.log(`Relative Cleanliness (24hr): ${percentile.toFixed(0)} percentile | color=${TEXT_COLOR}`);
+    console.log(`Relative Emissions (24hr): ${percentile.toFixed(0)} percentile | color=${TEXT_COLOR}`);
     console.log(`Grid Carbon Intensity: ${Math.round(currentCarbonIntensity)} gCO₂eq/kWh | color=${TEXT_COLOR}`);
     //console.log(`Range: ${Math.round(range.min)} - ${Math.round(range.max)} gCO₂eq/kWh | color=${TEXT_COLOR}`);
-    const graphBase64 = generateGraph(hourlyData);
+    const graphBase64 = generateGraph(hourlyData, currentCarbonIntensity);
     console.log(`| image=${graphBase64}`);
     
     console.log('---');
@@ -336,6 +341,7 @@ if (process.env.NODE_ENV !== 'test') {
       minute: '2-digit',
       hour12: true
     })} | color=${TEXT_COLOR}`);
+    console.log(`color=${TEXT_COLOR} because ${percentile}/20 = ${Math.floor(percentile/20)}`);
     console.log('---');
     console.log(`⚡ Open Electricity Maps, ${ELECTRICITY_MAPS_ZONE} | href=https://app.electricitymaps.com/zone/${ELECTRICITY_MAPS_ZONE}`);
     console.log('📖 View Setup & Usage Instructions | href=https://github.com/jasonm-jones/carbon-intensity-xbar#readme');
