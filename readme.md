@@ -15,8 +15,8 @@ What if you could reduce your electricity carbon footprint by 20-50% or more wit
 ## Understanding the Display
 
 The plugin shows several key metrics:
-- **Relative Cleanliness** (%): How clean the grid is compared to the last 24 hours
-- **Carbon Intensity** (gCO₂eq/kWh): The amount of carbon dioxide emitted per kilowatt-hour of electricity used
+- **Relative Emissions** (%): How clean the grid is compared to the last 24 hours
+- **Carbon Intensity** (gCO₂eq/kWh): The amount of carbon dioxide emitted per kilowatt-hour of electricity used (lower is better, higher is worse)
 - **Current Power Breakdown**: Percentage of power from renewable and fossil fuel sources
 
 ### Grid Cleanliness Indicators

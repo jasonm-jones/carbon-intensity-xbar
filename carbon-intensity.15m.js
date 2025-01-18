@@ -2,7 +2,7 @@
 
 // Metadata
 // <xbar.title>Carbon Intensity</xbar.title>
-// <xbar.version>v1.3</xbar.version>
+// <xbar.version>v1.3.1</xbar.version>
 // <xbar.author>Jason Jones</xbar.author>
 // <xbar.author.github>jasonm-jones</xbar.author.github>
 // <xbar.desc>Shows real-time carbon intensity and grid cleanliness to help you minimize your carbon footprint by running energy-intensive tasks at cleaner times.</xbar.desc>
@@ -82,10 +82,10 @@ async function getHourlyCarbonIntensity(zone) {
   return response.history; 
 }
 
-// Function to calculate percentile (cleaner = higher percentile)
+// Function to calculate percentile (dirtier = higher percentile)
 function calculatePercentile(value, data) {
   // Handle edge cases
-  if (!data || data.length === 0) return 100;
+  if (!data || data.length === 0) return 0;
 
   // Extract carbon intensity values from objects if needed
   const intensities = data.map(d => typeof d === 'object' ? d.carbonIntensity : d);
@@ -99,17 +99,12 @@ function calculatePercentile(value, data) {
   // If value is dirtier than or equal to dirtiest value, return 100
   if (value >= sortedIntensities[sortedIntensities.length - 1]) return 100;
 
-  // Special handling for exact matches to handle duplicates correctly
-  if (sortedIntensities.includes(value)) {
-    const cleanerCount = sortedIntensities.filter(intensity => intensity < value).length;
-    const equalCount = sortedIntensities.filter(intensity => intensity === value).length;
-    const percentile = ((cleanerCount + (equalCount - 1) / 2) / sortedIntensities.length) * 100;
-    return Math.round(percentile * 100) / 100;
-  }
-
-  // For values between data points, just count cleaner values
+  // For values between data points, calculate percentile
   const cleanerCount = sortedIntensities.filter(intensity => intensity < value).length;
-  const percentile = (cleanerCount / sortedIntensities.length) * 100;
+  const equalCount = sortedIntensities.filter(intensity => intensity === value).length;
+  
+  // Calculate percentile based on how many values are cleaner (lower is better)
+  const percentile = ((cleanerCount + equalCount/2) / sortedIntensities.length) * 100;
   return Math.round(percentile * 100) / 100;
 }
 
@@ -138,11 +133,11 @@ if (configErrors.length > 0) {
 
 function getEmoji(percentile) {
   if (percentile === undefined || percentile === 'N/A') return EMOJIS[5];  // ❓
-  if (percentile >= 80) return EMOJIS[0];  // 🌿 Cleanest 20%
-  if (percentile >= 60) return EMOJIS[1];  // 🌱 Cleaner than average
+  if (percentile >= 80) return EMOJIS[4];  // ⛔ Dirtiest 20%
+  if (percentile >= 60) return EMOJIS[3];  // 😡 Dirtier than average
   if (percentile >= 40) return EMOJIS[2];  // 😑 Average
-  if (percentile >= 20) return EMOJIS[3];  // 😡 Dirtier than average
-  return EMOJIS[4];                        // ⛔ Dirtiest 20%
+  if (percentile >= 20) return EMOJIS[1];  // 🌱 Cleaner than average
+  return EMOJIS[0];                        // 🌿 Cleanest 20%
 }
 
 
@@ -185,11 +180,11 @@ function generateGraph(hourlyData, percentile) {
     gridLines: 'rgba(51, 65, 85, 0.3)',    // Slate-700 with 30% opacity
     labels: 'rgba(255, 255, 255, 0.8)',    // White with 80% opacity for dark mode
     quintileColors: [
-      'rgb(74, 222, 128)',  // 🌿 Dark Green - Cleanest 20%
-      'rgb(93, 181, 41)',   // 🌱 Light Green - Cleaner than average
-      'rgb(253, 173, 58)',  // 😑 Yellow - Average
-      'rgb(247, 110, 45)',  // 😡 Orange - Dirtier than average
-      'rgb(220, 20, 9)'     // ⛔ Red - Dirtiest 20%
+      'rgb(220, 20, 9)',     // ⛔ Red - Dirtiest 20%
+      'rgb(247, 110, 45)',   // 😡 Orange - Dirtier than average
+      'rgb(253, 173, 58)',   // 😑 Yellow - Average
+      'rgb(93, 181, 41)',    // 🌱 Light Green - Cleaner than average
+      'rgb(74, 222, 128)',   // 🌿 Dark Green - Cleanest 20%
     ],
   };
   
@@ -341,11 +336,13 @@ if (process.env.NODE_ENV !== 'test') {
       minute: '2-digit',
       hour12: true
     })} | color=${TEXT_COLOR}`);
-    console.log(`color=${TEXT_COLOR} because ${percentile}/20 = ${Math.floor(percentile/20)}`);
+    //console.log(`color=${TEXT_COLOR} because ${percentile}/20 = ${Math.floor(percentile/20)}`);
     console.log('---');
     console.log(`⚡ Open Electricity Maps, ${ELECTRICITY_MAPS_ZONE} | href=https://app.electricitymaps.com/zone/${ELECTRICITY_MAPS_ZONE}`);
     console.log('📖 View Setup & Usage Instructions | href=https://github.com/jasonm-jones/carbon-intensity-xbar#readme');
 
+    //debug
+    //console.log(hourlyData);
     })
     .catch(error => {
       console.log('🔴 Error');

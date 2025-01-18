@@ -48,8 +48,8 @@ describe('calculatePercentile', () => {
     expect(calculatePercentile(500, testData)).toBe(100); // 500 is the dirtiest
   });
 
-  test('middle value should be 40th percentile', () => {
-    expect(calculatePercentile(300, testData)).toBe(40); // 300 is the 40th percentile
+  test('middle value should be 50th percentile', () => {
+    expect(calculatePercentile(300, testData)).toBe(50); // 300 is the 50th percentile (3rd out of 5 values)
   });
 
   test('value between data points should return appropriate percentile', () => {
@@ -66,7 +66,7 @@ describe('calculatePercentile', () => {
 
   // Edge cases
   test('empty data array should handle gracefully', () => {
-    expect(calculatePercentile(100, [])).toBe(100); // No data should return 100
+    expect(calculatePercentile(100, [])).toBe(0); // No data should return 0 percentile
   });
 
   test('single value in data array should work', () => {
@@ -83,7 +83,7 @@ describe('calculatePercentile', () => {
   });
 
   test('middle real-world value should get correct percentile', () => {
-    expect(calculatePercentile(827, realWorldData)).toBe(41.67); // Adjusted expected value
+    expect(calculatePercentile(827, realWorldData)).toBe(43.75); // Corrected expected value
   });
 
   // Real-world edge cases
@@ -96,7 +96,7 @@ describe('calculatePercentile', () => {
   });
 
   test('duplicate real-world value should get correct percentile', () => {
-    expect(calculatePercentile(827, realWorldData)).toBe(41.67); // Adjusted expected value
+    expect(calculatePercentile(827, realWorldData)).toBe(43.75); // Corrected expected value
   });
 
   test('value between real-world data points should get correct percentile', () => {
