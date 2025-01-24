@@ -2,7 +2,7 @@
 
 // Metadata
 // <xbar.title>Carbon Intensity</xbar.title>
-// <xbar.version>v1.3.1</xbar.version>
+// <xbar.version>v1.3.2</xbar.version>
 // <xbar.author>Jason Jones</xbar.author>
 // <xbar.author.github>jasonm-jones</xbar.author.github>
 // <xbar.desc>Shows real-time carbon intensity and grid cleanliness to help you minimize your carbon footprint by running energy-intensive tasks at cleaner times.</xbar.desc>
@@ -140,6 +140,14 @@ function getEmoji(percentile) {
   return EMOJIS[0];                        // 🌿 Cleanest 20%
 }
 
+function getTaskRecommendation(percentile) {
+  if (percentile === undefined || percentile === 'N/A') return '❓ Unable to determine optimal time for tasks';
+  if (percentile >= 80) return '⛔ Avoid high-energy tasks - grid is very dirty';
+  if (percentile >= 60) return '😡 Consider delaying high-energy tasks if possible';
+  if (percentile >= 40) return '😑 OK to run normal tasks';
+  if (percentile >= 20) return '🌱 Good time for high-energy tasks';
+  return '🌿 Excellent time to run high-energy tasks!';
+}
 
 function displayPowerBreakdown(powerData) {
   // Power source emojis
@@ -256,8 +264,23 @@ function generateGraph(hourlyData, percentile) {
     ctx.lineTo(x, canvas.height - MARGIN_BOTTOM + 4);  // 4px tick mark
     ctx.stroke();
 
-    // Draw label for all ticks, including the 5th
-    ctx.fillText(timeStr, x - 10, canvas.height - 5);  // Shifted left by 10px to center better with tick
+    // Draw label - make "Now" more prominent
+    if (i === 4) {
+      ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText("Now", x - 12, canvas.height - 5);
+      
+      // Draw vertical indicator line for current time
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';  // Semi-transparent white
+      ctx.setLineDash([2, 2]);  // Dashed line
+      ctx.beginPath();
+      ctx.moveTo(x, MARGIN_TOP);
+      ctx.lineTo(x, canvas.height - MARGIN_BOTTOM);
+      ctx.stroke();
+      ctx.setLineDash([]);  // Reset line style
+    } else {
+      ctx.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText(timeStr, x - 12, canvas.height - 5);
+    }
   }
 
   // Draw bars
@@ -300,6 +323,162 @@ function generateGraph(hourlyData, percentile) {
   return canvas.toDataURL().split(',')[1];
 }
 
+function generateAverageBasedGraph(hourlyData, percentile) {
+  const canvas = createCanvas(250, 100);
+  const ctx = canvas.getContext('2d');
+  
+  // Constants for styling
+  const COLORS = {
+    background: 'rgba(100, 116, 139, 0.15)',  // Slate-500 with 15% opacity
+    axis: 'rgba(255, 255, 255, 0.8)',      // White with 80% opacity for dark mode
+    gridLines: 'rgba(51, 65, 85, 0.3)',    // Slate-700 with 30% opacity
+    labels: 'rgba(255, 255, 255, 0.8)',    // White with 80% opacity for dark mode
+    quintileColors: [
+      'rgb(0, 153, 0)',   // 🌿 Dark Green - Cleanest 20%
+      'rgb(93, 181, 41)',    // 🌱 Light Green - Cleaner than average
+      'rgb(253, 173, 58)',   // 😑 Yellow - Average
+      'rgb(247, 110, 45)',   // 😡 Orange - Dirtier than average
+      'rgb(220, 20, 9)',     // ⛔ Red - Dirtiest 20%
+    ],
+  };
+  
+  // Layout constants
+  const MARGIN_LEFT = 30;
+  const MARGIN_RIGHT = 15;  // Increased from 5 to 15 to accommodate full label
+  const MARGIN_TOP = 10;
+  const MARGIN_BOTTOM = 20;
+  const GRAPH_WIDTH = canvas.width - MARGIN_LEFT - MARGIN_RIGHT;
+  const GRAPH_HEIGHT = canvas.height - MARGIN_TOP - MARGIN_BOTTOM;
+  
+  // Set background
+  ctx.fillStyle = COLORS.background;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Calculate average and data ranges
+  const intensities = hourlyData.map(h => h.carbonIntensity);
+  const average = intensities.reduce((a, b) => a + b, 0) / intensities.length;
+  const min = Math.min(...intensities);
+  const max = Math.max(...intensities);
+  const maxDeviation = Math.max(Math.abs(max - average), Math.abs(average - min));
+  
+  // Calculate scale factors
+  const yScale = (GRAPH_HEIGHT / 2) / maxDeviation;
+  const barWidth = (GRAPH_WIDTH / hourlyData.length) * 0.8;
+  const barSpacing = (GRAPH_WIDTH / hourlyData.length) * 0.2;
+
+  // Draw y-axis grid lines and labels
+  ctx.strokeStyle = COLORS.gridLines;
+  ctx.fillStyle = COLORS.labels;
+  ctx.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+  ctx.textAlign = 'right';
+  
+  // Draw grid lines and labels for positive deviations
+  const numGridLines = 2;
+  for (let i = 0; i <= numGridLines; i++) {
+    const value = average + (maxDeviation * (i / numGridLines));
+    const y = MARGIN_TOP + GRAPH_HEIGHT/2 - ((value - average) * yScale);
+    
+    // Draw grid line
+    ctx.beginPath();
+    ctx.setLineDash([4, 4]);
+    ctx.moveTo(MARGIN_LEFT, y);
+    ctx.lineTo(canvas.width - MARGIN_RIGHT, y);
+    ctx.stroke();
+    
+    // Draw label
+    ctx.setLineDash([]);
+    ctx.fillText(`${Math.round(value)}`, MARGIN_LEFT - 5, y + 4);
+  }
+  
+  // Draw grid lines and labels for negative deviations
+  for (let i = 1; i <= numGridLines; i++) {
+    const value = average - (maxDeviation * (i / numGridLines));
+    const y = MARGIN_TOP + GRAPH_HEIGHT/2 - ((value - average) * yScale);
+    
+    // Draw grid line
+    ctx.beginPath();
+    ctx.setLineDash([4, 4]);
+    ctx.moveTo(MARGIN_LEFT, y);
+    ctx.lineTo(canvas.width - MARGIN_RIGHT, y);
+    ctx.stroke();
+    
+    // Draw label
+    ctx.setLineDash([]);
+    ctx.fillText(`${Math.round(value)}`, MARGIN_LEFT - 5, y + 4);
+  }
+
+  // Draw x-axis (average line)
+  ctx.strokeStyle = COLORS.axis;
+  ctx.lineWidth = 1;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  const averageY = MARGIN_TOP + GRAPH_HEIGHT/2;
+  ctx.moveTo(MARGIN_LEFT, averageY);
+  ctx.lineTo(canvas.width - MARGIN_RIGHT, averageY);
+  ctx.stroke();
+
+  // Draw bars
+  hourlyData.forEach((hour, i) => {
+    const x = MARGIN_LEFT + (i * (barWidth + barSpacing));
+    const value = hour.carbonIntensity;
+    const percentile = calculatePercentile(value, hourlyData);
+    const quintileIndex = Math.min(Math.floor(percentile / 20), 4);
+    
+    // Calculate bar height and position
+    const barHeight = Math.abs(value - average) * yScale;
+    const y = value > average 
+      ? MARGIN_TOP + GRAPH_HEIGHT/2 - barHeight 
+      : MARGIN_TOP + GRAPH_HEIGHT/2;
+    
+    // Set color based on quintile
+    ctx.fillStyle = COLORS.quintileColors[quintileIndex];
+    
+    // Draw bar
+    ctx.fillRect(x, y, barWidth, barHeight);
+  });
+
+  // Draw x-axis time labels
+  ctx.fillStyle = COLORS.labels;
+  ctx.textAlign = 'left';
+  
+  for (let i = 0; i < 5; i++) {
+    const x = MARGIN_LEFT + (i * GRAPH_WIDTH / 4);
+    const hoursAgo = 24 - (i * 6);
+    const date = new Date();
+    date.setHours(date.getHours() - hoursAgo);
+    const timeStr = date.toLocaleTimeString('en-US', { 
+      hour: 'numeric',
+      hour12: true 
+    });
+
+    // Draw tick mark
+    ctx.beginPath();
+    ctx.moveTo(x, canvas.height - MARGIN_BOTTOM);
+    ctx.lineTo(x, canvas.height - MARGIN_BOTTOM + 4);
+    ctx.stroke();
+
+    // Draw label - make "Now" more prominent
+    if (i === 4) {
+      ctx.font = 'bold 10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText("Now", x - 12, canvas.height - 5);
+      
+      // Draw vertical indicator line for current time
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.4)';  // Semi-transparent white
+      ctx.setLineDash([2, 2]);  // Dashed line
+      ctx.beginPath();
+      ctx.moveTo(x, MARGIN_TOP);
+      ctx.lineTo(x, canvas.height - MARGIN_BOTTOM);
+      ctx.stroke();
+      ctx.setLineDash([]);  // Reset line style
+    } else {
+      ctx.font = '10px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+      ctx.fillText(timeStr, x - 12, canvas.height - 5);
+    }
+  }
+
+  return canvas.toDataURL().split(',')[1];
+}
+
 // Only run the main execution if not being tested
 if (process.env.NODE_ENV !== 'test') {
   // Make Electricity Maps API requests
@@ -317,11 +496,21 @@ if (process.env.NODE_ENV !== 'test') {
     // First output line is Menu Bar Display
     console.log(`${emoji} (${percentile.toFixed(0)}%) ${Math.round(currentCarbonIntensity)} gCO₂ | size=12 font=UbuntuMono-Bold`);
     console.log('---');
+    console.log(`${getTaskRecommendation(percentile)} | color=${TEXT_COLOR}`);
+    // console.log(`Range: ${Math.round(range.min)} - ${Math.round(range.max)} gCO₂eq/kWh | color=${TEXT_COLOR}`);
+    // console.log(`Carbon Intensity Over Time | color=${TEXT_COLOR}`);
+    // const graphBase64 = generateGraph(hourlyData, currentCarbonIntensity);
+    // console.log(`| image=${graphBase64}`);
+    // Show both graphs
+    // const standardGraph = generateGraph(hourlyData, currentCarbonIntensity);
+
+    // console.log(`| image=${standardGraph}`);
+    
+    const averageGraph = generateAverageBasedGraph(hourlyData, percentile);
+    console.log(`| image=${averageGraph}`);
+
     console.log(`Relative Emissions (24hr): ${percentile.toFixed(0)} percentile | color=${TEXT_COLOR}`);
     console.log(`Grid Carbon Intensity: ${Math.round(currentCarbonIntensity)} gCO₂eq/kWh | color=${TEXT_COLOR}`);
-    //console.log(`Range: ${Math.round(range.min)} - ${Math.round(range.max)} gCO₂eq/kWh | color=${TEXT_COLOR}`);
-    const graphBase64 = generateGraph(hourlyData, currentCarbonIntensity);
-    console.log(`| image=${graphBase64}`);
     
     console.log('---');
     displayPowerBreakdown(powerData);  
